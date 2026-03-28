@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="DDL餐厅"/>
+<meta name="theme-color" content="#ffbc0d"/>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%23ffbc0d'/%3E%3Ctext x='256' y='340' font-size='280' text-anchor='middle'%3E🍔%3C/text%3E%3C/svg%3E"/>
+<title>DDL餐厅</title>
+<link href="https://fonts.loli.net/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+/* 保持你原有的 CSS 样式不变 */
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Nunito','PingFang SC','Microsoft YaHei',sans-serif;background:#f5f5f5;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+:root{ --primary:#ffbc0d; --primary-dark:#d4900a; --primary-text:#1a1a1a; --header-bg:#ffbc0d; --btn-bg:#ffbc0d; --btn-text:#1a1a1a; }
+body[data-theme="kfc"]{ --primary:#e8001c; --header-bg:#e8001c; --btn-bg:#e8001c; --btn-text:#fff; }
+/* ... (其余样式省略以节省篇幅，建议保留你原始代码中的所有 style 内容) ... */
+#auth-overlay{position:fixed;inset:0;z-index:1000;background:#ffbc0d;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;transition:opacity 0.3s;}
+#auth-overlay.hidden{opacity:0;pointer-events:none;display:none;}
+.auth-card{background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:360px;}
+.auth-input{width:100%;border:1.5px solid #e0e0e0;border-radius:10px;padding:12px 14px;margin-bottom:10px;outline:none;}
+.auth-submit{width:100%;background:#ffbc0d;color:#1a1a1a;border:none;border-radius:28px;padding:14px;font-weight:900;cursor:pointer;}
+</style>
+</head>
+<body data-theme="mcdonalds">
+
+<div id="auth-overlay">
+  <div class="auth-logo" style="font-size:56px">🍔</div>
+  <div class="auth-title" style="font-size:28px;font-weight:900">DDL餐厅</div>
+  <div class="auth-card">
+    <div class="auth-tab-row" style="display:flex;gap:10px;margin-bottom:15px;">
+      <button onclick="switchTab('login')" id="tab-login" style="flex:1">登录</button>
+      <button onclick="switchTab('signup')" id="tab-signup" style="flex:1">注册</button>
+    </div>
+    <input class="auth-input" id="auth-email" type="email" placeholder="邮箱"/>
+    <input class="auth-input" id="auth-password" type="password" placeholder="密码"/>
+    <button class="auth-submit" onclick="handleAuth()">进入餐厅</button>
+    <div id="auth-error" style="color:red;font-size:12px;margin-top:10px;text-align:center"></div>
+  </div>
+</div>
+
+<div id="header" style="background:var(--header-bg);padding:15px;">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-weight:900; font-size:20px;">DDL餐厅</span>
+    <button onclick="handleLogout()" style="background:none; border:none; font-size:20px; cursor:pointer;">⏻</button>
+  </div>
+</div>
+
+<div id="main" style="flex:1; overflow-y:auto; padding:10px;">
+  <div id="task-container">正在加载菜单...</div>
+</div>
+
+<script>
+// --- 核心配置 ---
+const SUPABASE_URL = '你的URL'; 
+const SUPABASE_KEY = '你的KEY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let authMode = 'login';
+
+// --- 初始化与会话管理 ---
+async function init() {
+  // 恢复主题
+  const savedTheme = localStorage.getItem('theme') || 'mcdonalds';
+  document.body.setAttribute('data-theme', savedTheme);
+
+  // 1. 检查当前会话
+  const { data: { session }, error } = await sb.auth.getSession();
+  
+  if (session) {
+    onUserReady(session.user);
+  } else {
+    showAuthOverlay(true);
+  }
+
+  // 2. 监听会话变化（可选，但推荐）
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      onUserReady(session.user);
+    } else if (event === 'SIGNED_OUT') {
+      showAuthOverlay(true);
+    }
+  });
+}
+
+function onUserReady(user) {
+  currentUser = user;
+  showAuthOverlay(false);
+  loadTasks(); // 你的任务加载函数
+}
+
+function showAuthOverlay(show) {
+  const overlay = document.getElementById('auth-overlay');
+  if (show) {
+    overlay.classList.remove('hidden');
+    overlay.style.display = 'flex';
+  } else {
+    overlay.classList.add('hidden');
+    overlay.style.display = 'none';
+  }
+}
+
+// --- 身份验证逻辑 ---
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById('auth-btn').innerText = mode === 'login' ? '登录' : '注册';
+  // 处理 CSS 类切换...
+}
+
+async function handleAuth() {
+  const email = document.getElementById('auth-email').value;
+  const password = document.getElementById('auth-password').value;
+  const errorEl = document.getElementById('auth-error');
+  errorEl.innerText = '';
+
+  try {
+    let result;
+    if (authMode === 'login') {
+      result = await sb.auth.signInWithPassword({ email, password });
+    } else {
+      result = await sb.auth.signUp({ email, password });
+      if (!result.error) alert('请前往邮箱查看确认邮件');
+    }
+
+    if (result.error) throw result.error;
+  } catch (err) {
+    errorEl.innerText = err.message;
+  }
+}
+
+// --- 修复登出逻辑 ---
+async function handleLogout() {
+  if (!confirm('确定要离开餐厅吗？')) return;
+  
+  try {
+    const { error } = await sb.auth.signOut();
+    if (error) throw error;
+    
+    // 彻底清除本地缓存，防止干扰下一次登录
+    localStorage.clear();
+    // 强制刷新页面回到干净的状态
+    window.location.reload();
+  } catch (err) {
+    console.error('Logout error:', err);
+    // 即使出错，也强制清理并刷新
+    localStorage.clear();
+    window.location.href = window.location.origin;
+  }
+}
+
+// 模拟加载任务（替换为你原来的 loadTasks）
+async function loadTasks() {
+  document.getElementById('task-container').innerHTML = "任务列表已加载 (用户: " + currentUser.email + ")";
+}
+
+// 启动执行
+init();
+</script>
+</body>
+</html>
