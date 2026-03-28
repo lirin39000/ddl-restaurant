@@ -1004,14 +1004,30 @@ showAuthOverlay(true);
 render(); // 先渲染空界面，确保分类和加单按钮始终可见
 
 let sessionLoaded=false;
-sb.auth.onAuthStateChange(async(event,session)=>{
-  if(event==='TOKEN_REFRESHED') return; // 只跳过token刷新，其他情况都正常处理
-  if(session){
+
+// 主动检查 session，不依赖监听器
+sb.auth.getSession().then(async({data:{session}})=>{
+  if(session&&!sessionLoaded){
+    sessionLoaded=true;
     currentUser=session.user;
     showAuthOverlay(false);
     await loadTasks();
+  }
+});
+
+// 监听后续变化（登录/登出/token刷新）
+sb.auth.onAuthStateChange(async(event,session)=>{
+  if(event==='TOKEN_REFRESHED')return;
+  if(session){
+    if(!sessionLoaded){
+      sessionLoaded=true;
+      currentUser=session.user;
+      showAuthOverlay(false);
+      await loadTasks();
+    }
   } else {
     currentUser=null;tasks=[];
+    sessionLoaded=false;
     showAuthOverlay(true);
     showLoading(false);
     render();
