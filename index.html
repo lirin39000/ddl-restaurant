@@ -598,30 +598,17 @@ async function handleAuth(){
     errEl.textContent='注册成功！请检查邮箱验证后登录';
     document.getElementById('auth-btn').textContent='注册';
   }
-  // Remember email for quick re-login (iOS PWA may clear session but keep localStorage)
-  if(!result.error && email){try{localStorage.setItem('ddl-last-email',email);}catch(e){}}
 }
 async function handleLogout(){
-  try{ if(!confirm('确认退出登录？'))return; }catch(e){/* iOS PWA confirm may fail */}
-  try{ await sb.auth.signOut(); }catch(e){ console.warn('signOut error',e); }
-  currentUser=null;tasks=[];sessionLoaded=false;
-  showAuthOverlay(true);
-  render();
+  if(!confirm('确认退出登录？'))return;
+  await sb.auth.signOut();
+  location.reload();
 }
 function showLoading(v){
   document.getElementById('loading-overlay').classList.toggle('hidden',!v);
 }
 function showAuthOverlay(v){
   document.getElementById('auth-overlay').classList.toggle('hidden',!v);
-  if(v){
-    try{
-      const saved=localStorage.getItem('ddl-last-email');
-      if(saved){
-        document.getElementById('auth-email').value=saved;
-        setTimeout(()=>document.getElementById('auth-password').focus(),100);
-      }
-    }catch(e){}
-  }
 }
 
 // ── Themes ────────────────────────────────────────────────────────────────
@@ -1017,30 +1004,14 @@ showAuthOverlay(true);
 render(); // 先渲染空界面，确保分类和加单按钮始终可见
 
 let sessionLoaded=false;
-let initialCheckDone=false;
-
 sb.auth.onAuthStateChange(async(event,session)=>{
-  console.log('[auth]',event,!!session);
   if(session){
     currentUser=session.user;
     showAuthOverlay(false);
+    // Prevent re-loading on token refresh (TOKEN_REFRESHED), only load on real sign-in or first load
     if(!sessionLoaded||event==='SIGNED_IN'){
       sessionLoaded=true;
       await loadTasks();
-    }
-  } else if(event==='INITIAL_SESSION'){
-    // iOS PWA cold-start: don't clear immediately, try getSession() first
-    if(!initialCheckDone){
-      initialCheckDone=true;
-      const {data:{session:s}}=await sb.auth.getSession();
-      if(s){
-        currentUser=s.user;
-        showAuthOverlay(false);
-        if(!sessionLoaded){sessionLoaded=true;await loadTasks();}
-      } else {
-        currentUser=null;tasks=[];sessionLoaded=false;
-        showAuthOverlay(true);showLoading(false);render();
-      }
     }
   } else {
     currentUser=null;tasks=[];
@@ -1048,18 +1019,6 @@ sb.auth.onAuthStateChange(async(event,session)=>{
     showAuthOverlay(true);
     showLoading(false);
     render();
-  }
-});
-
-// iOS PWA: re-check session when app returns from background
-document.addEventListener('visibilitychange',async()=>{
-  if(document.visibilityState==='visible'&&!currentUser){
-    const {data:{session:s}}=await sb.auth.getSession();
-    if(s){
-      currentUser=s.user;
-      showAuthOverlay(false);
-      if(!sessionLoaded){sessionLoaded=true;await loadTasks();}
-    }
   }
 });
 </script>
