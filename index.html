@@ -803,7 +803,7 @@ function render(){
   const cbadge=document.getElementById("badge-completed");
   if(cbadge){cbadge.textContent=archived.length;cbadge.style.display=archived.length>0?'flex':'none';}
   html+=`<div id="completed-section" style="display:${completedOpen?'block':'none'};background:#fff;margin-bottom:8px;">`;
-  html+=`<div class="section-header" style="background:#f8f8f8"><span>🧾</span>已完成<span class="completed-count-badge">${archived.length}项</span></div>`;
+  html+=`<div class="section-header" style="background:#f8f8f8"><span>🧾</span>已完成<span class="completed-count-badge">${archived.length}项</span>${archived.length>0?`<button class="add-section-btn" style="margin-left:auto;background:#ff4444;color:#fff" onclick="clearAllCompleted()">清空</button>`:''}</div>`;
   if(archived.length===0)html+=`<div class="empty-hint">暂无已归档任务</div>`;
   else archived.forEach(t=>{
     const cat=CATS.find(c=>c.id===t.catId);
@@ -913,7 +913,14 @@ document.getElementById("main").addEventListener("scroll",function(){
 },{passive:true});
 
 // ── Task actions ──────────────────────────────────────────────────────────
-async function deleteTask(id){
+async function clearAllCompleted(){
+  const archived=allArchived();
+  if(archived.length===0)return;
+  if(!confirm(`确认清空全部 ${archived.length} 条已完成任务？此操作不可撤销`))return;
+  tasks=tasks.filter(t=>{const c=CATS.find(x=>x.id===t.catId);return!(t.done&&!c?.grey);});
+  render();
+  await Promise.all(archived.map(t=>dbDelete(t.id)));
+}
   tasks=tasks.filter(t=>t.id!==id);render();
   await dbDelete(id);
 }
@@ -1003,6 +1010,13 @@ function closeReceipt(){document.getElementById("receipt-page").classList.remove
 applyTheme(currentTheme);
 showAuthOverlay(true);
 render(); // 先渲染空界面，确保分类和加单按钮始终可见
+
+// ── 页面重新可见时刷新任务（解决 iOS PWA 重开丢数据问题）────────────────
+document.addEventListener('visibilitychange', async()=>{
+  if(document.visibilityState==='visible' && currentUser){
+    await loadTasks();
+  }
+});
 
 let sessionLoaded=false;
 sb.auth.onAuthStateChange(async(event,session)=>{
