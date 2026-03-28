@@ -602,10 +602,7 @@ async function handleAuth(){
 async function handleLogout(){
   if(!confirm('确认退出登录？'))return;
   await sb.auth.signOut();
-  tasks=[];
-  sessionLoaded=false;
-  showAuthOverlay(true);
-  render();
+  location.reload();
 }
 function showLoading(v){
   document.getElementById('loading-overlay').classList.toggle('hidden',!v);
@@ -676,17 +673,20 @@ function showLoading(v){
   clearTimeout(loadingTimer);
   const el=document.getElementById('loading-overlay');
   if(v){
-    // populate floating dots
+    // populate floating dots in grid
     const dotsEl=document.getElementById('loading-dots');
     if(dotsEl&&dotsEl.children.length===0){
-      for(let i=0;i<18;i++){
-        const s=document.createElement('span');
-        s.textContent=FOOD_EMOJIS[i%FOOD_EMOJIS.length];
-        s.style.left=Math.random()*100+'%';
-        s.style.top=Math.random()*100+'%';
-        s.style.animationDelay=Math.random()*6+'s';
-        s.style.animationDuration=(4+Math.random()*5)+'s';
-        dotsEl.appendChild(s);
+      const cols=5, rows=5;
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          const s=document.createElement('span');
+          s.textContent=FOOD_EMOJIS[(r*cols+c)%FOOD_EMOJIS.length];
+          s.style.left=(c*(100/(cols-1)))+'%';
+          s.style.top=(r*(100/(rows-1))+20)+'%';
+          s.style.animationDelay=(r*0.4+c*0.2)+'s';
+          s.style.animationDuration='5s';
+          dotsEl.appendChild(s);
+        }
       }
     }
     // random tip
