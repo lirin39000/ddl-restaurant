@@ -604,9 +604,11 @@ async function handleLogout(){
   await sb.auth.signOut();
   location.reload();
 }
+function showLoading(v){
+  document.getElementById('loading-overlay').classList.toggle('hidden',!v);
+}
 function showAuthOverlay(v){
   document.getElementById('auth-overlay').classList.toggle('hidden',!v);
-  if(v) document.querySelector('meta[name="theme-color"]').setAttribute('content','#ffbc0d');
 }
 
 // ── Themes ────────────────────────────────────────────────────────────────
@@ -800,7 +802,7 @@ function render(){
   const cbadge=document.getElementById("badge-completed");
   if(cbadge){cbadge.textContent=archived.length;cbadge.style.display=archived.length>0?'flex':'none';}
   html+=`<div id="completed-section" style="display:${completedOpen?'block':'none'};background:#fff;margin-bottom:8px;">`;
-  html+=`<div class="section-header" style="background:#f8f8f8"><span>🧾</span>已完成<span class="completed-count-badge">${archived.length}项</span>${archived.length>0?`<button class="add-section-btn" style="margin-left:auto;background:#ff4444;color:#fff" onclick="clearAllCompleted()">清空</button>`:''}</div>`;
+  html+=`<div class="section-header" style="background:#f8f8f8"><span>🧾</span>已完成<span class="completed-count-badge">${archived.length}项</span></div>`;
   if(archived.length===0)html+=`<div class="empty-hint">暂无已归档任务</div>`;
   else archived.forEach(t=>{
     const cat=CATS.find(c=>c.id===t.catId);
@@ -910,14 +912,7 @@ document.getElementById("main").addEventListener("scroll",function(){
 },{passive:true});
 
 // ── Task actions ──────────────────────────────────────────────────────────
-async function clearAllCompleted(){
-  const archived=allArchived();
-  if(archived.length===0)return;
-  if(!confirm(`确认清空全部 ${archived.length} 条已完成任务？此操作不可撤销`))return;
-  tasks=tasks.filter(t=>{const c=CATS.find(x=>x.id===t.catId);return!(t.done&&!c?.grey);});
-  render();
-  await Promise.all(archived.map(t=>dbDelete(t.id)));
-}
+async function deleteTask(id){
   tasks=tasks.filter(t=>t.id!==id);render();
   await dbDelete(id);
 }
@@ -1006,21 +1001,14 @@ function closeReceipt(){document.getElementById("receipt-page").classList.remove
 // ── Init ──────────────────────────────────────────────────────────────────
 applyTheme(currentTheme);
 showAuthOverlay(true);
-render();
+render(); // 先渲染空界面，确保分类和加单按钮始终可见
 
 let sessionLoaded=false;
-
-// ── 页面重新可见时刷新任务（解决 iOS PWA 重开丢数据问题）────────────────
-document.addEventListener('visibilitychange', async()=>{
-  if(document.visibilityState==='visible' && currentUser){
-    await loadTasks();
-  }
-});
-
 sb.auth.onAuthStateChange(async(event,session)=>{
   if(session){
     currentUser=session.user;
     showAuthOverlay(false);
+    // Prevent re-loading on token refresh (TOKEN_REFRESHED), only load on real sign-in or first load
     if(!sessionLoaded||event==='SIGNED_IN'){
       sessionLoaded=true;
       await loadTasks();
@@ -1031,6 +1019,13 @@ sb.auth.onAuthStateChange(async(event,session)=>{
     showAuthOverlay(true);
     showLoading(false);
     render();
+  }
+});
+
+// iOS PWA 重新打开时重新拉取数据
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&currentUser){
+    loadTasks();
   }
 });
 </script>
