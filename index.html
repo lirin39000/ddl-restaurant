@@ -601,6 +601,7 @@ async function handleAuth(){
 }
 async function handleLogout(){
   if(!confirm('确认退出登录？'))return;
+  localStorage.removeItem('ddl-session');
   await sb.auth.signOut();
   location.reload();
 }
@@ -1005,34 +1006,57 @@ render(); // 先渲染空界面，确保分类和加单按钮始终可见
 
 let sessionLoaded=false;
 
-// 主动检查 session，不依赖监听器
-sb.auth.getSession().then(async({data:{session}})=>{
-  if(session&&!sessionLoaded){
-    sessionLoaded=true;
-    currentUser=session.user;
-    showAuthOverlay(false);
-    await loadTasks();
+async function initAuth(){
+  // 1. 先尝试从我们自己存的 token 恢复 session
+  const saved = localStorage.getItem('ddl-session');
+  if(saved){
+    try{
+      const {access_token, refresh_token} = JSON.parse(saved);
+      const {data, error} = await sb.auth.setSession({access_token, refresh_token});
+      if(data?.session){
+        currentUser = data.session.user;
+        // 更新存储的 token（可能已刷新）
+        localStorage.setItem('ddl-session', JSON.stringify({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token
+        }));
+        showAuthOverlay(false);
+        await loadTasks();
+        return;
+      }
+    }catch(e){}
+    // token 无效，清掉
+    localStorage.removeItem('ddl-session');
   }
-});
+  // 2. 没有保存的 session，显示登录界面
+  showAuthOverlay(true);
+}
 
-// 监听后续变化（登录/登出/token刷新）
-sb.auth.onAuthStateChange(async(event,session)=>{
-  if(event==='TOKEN_REFRESHED')return;
-  if(session){
+// 监听登录/登出
+sb.auth.onAuthStateChange(async(event, session)=>{
+  if(event==='SIGNED_IN' && session){
+    // 保存 token 到我们自己的 localStorage
+    localStorage.setItem('ddl-session', JSON.stringify({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token
+    }));
+    currentUser = session.user;
+    showAuthOverlay(false);
     if(!sessionLoaded){
       sessionLoaded=true;
-      currentUser=session.user;
-      showAuthOverlay(false);
       await loadTasks();
     }
-  } else {
-    currentUser=null;tasks=[];
+  } else if(event==='SIGNED_OUT'){
+    localStorage.removeItem('ddl-session');
+    currentUser=null; tasks=[];
     sessionLoaded=false;
     showAuthOverlay(true);
     showLoading(false);
     render();
   }
 });
+
+initAuth();
 </script>
 </body>
 </html>
