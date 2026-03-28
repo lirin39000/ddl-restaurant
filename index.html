@@ -921,6 +921,7 @@ function closeReceipt(){document.getElementById("receipt-page").classList.remove
 // ── Init ──────────────────────────────────────────────────────────────────
 applyTheme(currentTheme);
 showAuthOverlay(true);
+render(); // 先渲染空界面，确保分类和加单按钮始终可见
 
 let sessionLoaded=false;
 sb.auth.onAuthStateChange(async(event,session)=>{
