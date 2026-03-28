@@ -358,6 +358,15 @@ body[data-theme="starbucks"]{
 }
 .loading-tip{font-size:12px;font-weight:700;color:#555;letter-spacing:0.5px;text-align:center;padding:0 32px;}
 
+/* ── Custom confirm modal ── */
+#confirm-modal{position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);opacity:0;pointer-events:none;transition:opacity 0.2s;}
+#confirm-modal.show{opacity:1;pointer-events:all;}
+.confirm-box{background:#fff;border-radius:20px;padding:24px 20px;width:80%;max-width:300px;text-align:center;}
+.confirm-msg{font-size:15px;font-weight:800;color:#1a1a1a;margin-bottom:20px;line-height:1.5;}
+.confirm-btns{display:flex;gap:10px;}
+.confirm-ok{flex:1;background:#ff4444;color:#fff;border:none;border-radius:20px;padding:11px;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;}
+.confirm-cancel{flex:1;background:#f0f0f0;color:#888;border:none;border-radius:20px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+
 button:focus{outline:none;}
 input:focus{outline:none;}
 </style>
@@ -510,6 +519,17 @@ input:focus{outline:none;}
   </div>
 </div>
 
+<!-- Custom confirm modal -->
+<div id="confirm-modal">
+  <div class="confirm-box">
+    <div class="confirm-msg" id="confirm-msg">确认吗？</div>
+    <div class="confirm-btns">
+      <button class="confirm-cancel" onclick="closeConfirm()">取消</button>
+      <button class="confirm-ok" id="confirm-ok-btn">确认</button>
+    </div>
+  </div>
+</div>
+
 <!-- Receipt page -->
 <div id="receipt-page">
   <div class="receipt-topbar">
@@ -565,7 +585,14 @@ input:focus{outline:none;}
 // ── Supabase ──────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://dykzgexoohulepmbjimc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5a3pnZXhvb2h1bGVwbWJqaW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTg5MTcsImV4cCI6MjA5MDE3NDkxN30.zeWGEt3PVAgvJVUG_9iQQwYXweZGqscuIUoueSv0AlE';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    storageKey: 'ddl-auth-session',
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  }
+});
 let currentUser = null;
 
 // ── Auth UI ───────────────────────────────────────────────────────────────
@@ -598,30 +625,29 @@ async function handleAuth(){
     errEl.textContent='注册成功！请检查邮箱验证后登录';
     document.getElementById('auth-btn').textContent='注册';
   }
-  // Remember email for quick re-login (iOS PWA may clear session but keep localStorage)
-  if(!result.error && email){try{localStorage.setItem('ddl-last-email',email);}catch(e){}}
 }
-async function handleLogout(){
-  try{ if(!confirm('确认退出登录？'))return; }catch(e){/* iOS PWA confirm may fail */}
-  try{ await sb.auth.signOut(); }catch(e){ console.warn('signOut error',e); }
-  currentUser=null;tasks=[];sessionLoaded=false;
-  showAuthOverlay(true);
-  render();
+// ── Custom confirm ────────────────────────────────────────────────────────
+function showConfirm(msg, onOk){
+  document.getElementById('confirm-msg').textContent=msg;
+  const btn=document.getElementById('confirm-ok-btn');
+  btn.onclick=()=>{closeConfirm();onOk();};
+  document.getElementById('confirm-modal').classList.add('show');
+}
+function closeConfirm(){
+  document.getElementById('confirm-modal').classList.remove('show');
+}
+
+function handleLogout(){
+  showConfirm('确认退出登录？', async()=>{
+    await sb.auth.signOut();
+    location.reload();
+  });
 }
 function showLoading(v){
   document.getElementById('loading-overlay').classList.toggle('hidden',!v);
 }
 function showAuthOverlay(v){
   document.getElementById('auth-overlay').classList.toggle('hidden',!v);
-  if(v){
-    try{
-      const saved=localStorage.getItem('ddl-last-email');
-      if(saved){
-        document.getElementById('auth-email').value=saved;
-        setTimeout(()=>document.getElementById('auth-password').focus(),100);
-      }
-    }catch(e){}
-  }
 }
 
 // ── Themes ────────────────────────────────────────────────────────────────
@@ -1017,30 +1043,14 @@ showAuthOverlay(true);
 render(); // 先渲染空界面，确保分类和加单按钮始终可见
 
 let sessionLoaded=false;
-let initialCheckDone=false;
-
 sb.auth.onAuthStateChange(async(event,session)=>{
-  console.log('[auth]',event,!!session);
   if(session){
     currentUser=session.user;
     showAuthOverlay(false);
+    // Prevent re-loading on token refresh (TOKEN_REFRESHED), only load on real sign-in or first load
     if(!sessionLoaded||event==='SIGNED_IN'){
       sessionLoaded=true;
       await loadTasks();
-    }
-  } else if(event==='INITIAL_SESSION'){
-    // iOS PWA cold-start: don't clear immediately, try getSession() first
-    if(!initialCheckDone){
-      initialCheckDone=true;
-      const {data:{session:s}}=await sb.auth.getSession();
-      if(s){
-        currentUser=s.user;
-        showAuthOverlay(false);
-        if(!sessionLoaded){sessionLoaded=true;await loadTasks();}
-      } else {
-        currentUser=null;tasks=[];sessionLoaded=false;
-        showAuthOverlay(true);showLoading(false);render();
-      }
     }
   } else {
     currentUser=null;tasks=[];
@@ -1048,18 +1058,6 @@ sb.auth.onAuthStateChange(async(event,session)=>{
     showAuthOverlay(true);
     showLoading(false);
     render();
-  }
-});
-
-// iOS PWA: re-check session when app returns from background
-document.addEventListener('visibilitychange',async()=>{
-  if(document.visibilityState==='visible'&&!currentUser){
-    const {data:{session:s}}=await sb.auth.getSession();
-    if(s){
-      currentUser=s.user;
-      showAuthOverlay(false);
-      if(!sessionLoaded){sessionLoaded=true;await loadTasks();}
-    }
   }
 });
 </script>
