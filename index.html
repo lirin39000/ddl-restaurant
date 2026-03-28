@@ -598,6 +598,8 @@ async function handleAuth(){
     errEl.textContent='注册成功！请检查邮箱验证后登录';
     document.getElementById('auth-btn').textContent='注册';
   }
+  // Remember email for quick re-login (iOS PWA may clear session but keep localStorage)
+  if(!result.error && email){try{localStorage.setItem('ddl-last-email',email);}catch(e){}}
 }
 async function handleLogout(){
   try{ if(!confirm('确认退出登录？'))return; }catch(e){/* iOS PWA confirm may fail */}
@@ -611,6 +613,15 @@ function showLoading(v){
 }
 function showAuthOverlay(v){
   document.getElementById('auth-overlay').classList.toggle('hidden',!v);
+  if(v){
+    try{
+      const saved=localStorage.getItem('ddl-last-email');
+      if(saved){
+        document.getElementById('auth-email').value=saved;
+        setTimeout(()=>document.getElementById('auth-password').focus(),100);
+      }
+    }catch(e){}
+  }
 }
 
 // ── Themes ────────────────────────────────────────────────────────────────
