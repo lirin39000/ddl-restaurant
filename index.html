@@ -592,6 +592,8 @@ function applyTheme(id){
   document.getElementById("header-logo").textContent=t.logo;
   document.getElementById("header-tagline").textContent=t.tagline;
   document.getElementById("header-badge").textContent=t.badge;
+  // 动态更新状态栏颜色
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', t.dotBg);
   localStorage.setItem("ddl-theme",id);renderThemeGrid();
 }
 function renderThemeGrid(){
