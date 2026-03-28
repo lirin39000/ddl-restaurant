@@ -1009,7 +1009,7 @@ sb.auth.onAuthStateChange(async(event,session)=>{
     currentUser=session.user;
     showAuthOverlay(false);
     // Prevent re-loading on token refresh (TOKEN_REFRESHED), only load on real sign-in or first load
-    if(!sessionLoaded||event==='SIGNED_IN'){
+    if(!sessionLoaded||event==='SIGNED_IN'||event==='INITIAL_SESSION'){
       sessionLoaded=true;
       await loadTasks();
     }
@@ -1019,13 +1019,6 @@ sb.auth.onAuthStateChange(async(event,session)=>{
     showAuthOverlay(true);
     showLoading(false);
     render();
-  }
-});
-
-// iOS PWA 重新打开时重新拉取数据
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible'&&currentUser){
-    loadTasks();
   }
 });
 </script>
