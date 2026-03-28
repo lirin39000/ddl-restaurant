@@ -321,12 +321,42 @@ body[data-theme="starbucks"]{
 .auth-submit:active{opacity:0.8;}
 .auth-error{font-size:12px;font-weight:700;color:#e8001c;text-align:center;margin-top:10px;min-height:18px;}
 
-/* ── Loading overlay ── */
-#loading-overlay{position:fixed;inset:0;z-index:900;background:rgba(255,255,255,0.88);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;transition:opacity 0.25s;}
+/* ── Game-style loading screen ── */
+#loading-overlay{
+  position:fixed;inset:0;z-index:900;
+  background:#1a1a1a;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 0.4s;
+  gap:0;
+}
 #loading-overlay.hidden{opacity:0;pointer-events:none;}
-.loading-spinner{width:36px;height:36px;border:4px solid #f0f0f0;border-top:4px solid #ffbc0d;border-radius:50%;animation:spin 0.7s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-.loading-text{font-size:13px;font-weight:800;color:#aaa;}
+.loading-bg-dots{
+  position:absolute;inset:0;overflow:hidden;pointer-events:none;
+}
+.loading-bg-dots span{
+  position:absolute;font-size:28px;opacity:0.07;
+  animation:floatDot 6s infinite linear;
+}
+@keyframes floatDot{
+  0%{transform:translateY(0) rotate(0deg);}
+  100%{transform:translateY(-110vh) rotate(360deg);}
+}
+.loading-logo{font-size:80px;margin-bottom:16px;animation:logoBounce 0.8s infinite alternate ease-in-out;}
+@keyframes logoBounce{0%{transform:scale(1) translateY(0);}100%{transform:scale(1.12) translateY(-8px);}}
+.loading-title{font-size:28px;font-weight:900;color:#fff;letter-spacing:2px;margin-bottom:6px;}
+.loading-subtitle{font-size:13px;font-weight:700;color:#ffbc0d;letter-spacing:1px;margin-bottom:36px;}
+.loading-bar-wrap{
+  width:220px;height:10px;background:#333;border-radius:10px;overflow:hidden;margin-bottom:14px;
+}
+.loading-bar-fill{
+  height:100%;width:0%;background:linear-gradient(90deg,#ffbc0d,#ff8c00);
+  border-radius:10px;
+  animation:loadBar 2.2s ease-in-out infinite;
+}
+@keyframes loadBar{
+  0%{width:0%;}60%{width:85%;}80%{width:90%;}100%{width:100%;}
+}
+.loading-tip{font-size:12px;font-weight:700;color:#555;letter-spacing:0.5px;text-align:center;padding:0 32px;}
 
 button:focus{outline:none;}
 input:focus{outline:none;}
@@ -351,10 +381,16 @@ input:focus{outline:none;}
   </div>
 </div>
 
-<!-- Loading overlay -->
+<!-- Game-style loading screen -->
 <div id="loading-overlay" class="hidden">
-  <div class="loading-spinner"></div>
-  <div class="loading-text">加载中…</div>
+  <div class="loading-bg-dots" id="loading-dots"></div>
+  <div class="loading-logo">🍔</div>
+  <div class="loading-title">DDL 餐厅</div>
+  <div class="loading-subtitle">TODAY'S TASK RESTAURANT</div>
+  <div class="loading-bar-wrap">
+    <div class="loading-bar-fill"></div>
+  </div>
+  <div class="loading-tip" id="loading-tip">备餐中，请稍候…</div>
 </div>
 
 <!-- Header -->
@@ -623,12 +659,44 @@ let tasks=[];
 let addingTo=null,completedOpen=false,scrollingProg=false;
 
 // ── Supabase CRUD ─────────────────────────────────────────────────────────
+const LOADING_TIPS=[
+  "🍳 厨师正在备餐，请稍候…",
+  "🥬 今日食材新鲜到货…",
+  "🔥 后厨正在热锅…",
+  "📋 正在核对今日菜单…",
+  "🛵 外卖小哥已待命…",
+  "⭐ 为您准备今日特供…",
+  "🧑‍🍳 主厨正在施展厨艺…",
+  "🍱 便当已打包完毕…",
+];
+const FOOD_EMOJIS=["🍔","🍟","🌮","🥤","🍦","🧁","🥗","🍱","☕","🥞","🍕","🥙"];
+
 let loadingTimer=null;
 function showLoading(v){
   clearTimeout(loadingTimer);
-  document.getElementById('loading-overlay').classList.toggle('hidden',!v);
-  // auto-hide after 8s to prevent permanent white screen
-  if(v) loadingTimer=setTimeout(()=>showLoading(false),8000);
+  const el=document.getElementById('loading-overlay');
+  if(v){
+    // populate floating dots
+    const dotsEl=document.getElementById('loading-dots');
+    if(dotsEl&&dotsEl.children.length===0){
+      for(let i=0;i<18;i++){
+        const s=document.createElement('span');
+        s.textContent=FOOD_EMOJIS[i%FOOD_EMOJIS.length];
+        s.style.left=Math.random()*100+'%';
+        s.style.top=Math.random()*100+'%';
+        s.style.animationDelay=Math.random()*6+'s';
+        s.style.animationDuration=(4+Math.random()*5)+'s';
+        dotsEl.appendChild(s);
+      }
+    }
+    // random tip
+    const tipEl=document.getElementById('loading-tip');
+    if(tipEl)tipEl.textContent=LOADING_TIPS[Math.floor(Math.random()*LOADING_TIPS.length)];
+    el.classList.remove('hidden');
+    loadingTimer=setTimeout(()=>showLoading(false),8000);
+  } else {
+    el.classList.add('hidden');
+  }
 }
 
 async function loadTasks(){
