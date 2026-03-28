@@ -1006,7 +1006,9 @@ function closeReceipt(){document.getElementById("receipt-page").classList.remove
 // ── Init ──────────────────────────────────────────────────────────────────
 applyTheme(currentTheme);
 showAuthOverlay(true);
-render(); // 先渲染空界面，确保分类和加单按钮始终可见
+render();
+
+let sessionLoaded=false;
 
 // ── 页面重新可见时刷新任务（解决 iOS PWA 重开丢数据问题）────────────────
 document.addEventListener('visibilitychange', async()=>{
@@ -1015,12 +1017,10 @@ document.addEventListener('visibilitychange', async()=>{
   }
 });
 
-let sessionLoaded=false;
 sb.auth.onAuthStateChange(async(event,session)=>{
   if(session){
     currentUser=session.user;
     showAuthOverlay(false);
-    // Prevent re-loading on token refresh (TOKEN_REFRESHED), only load on real sign-in or first load
     if(!sessionLoaded||event==='SIGNED_IN'){
       sessionLoaded=true;
       await loadTasks();
