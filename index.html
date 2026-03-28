@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DDL餐厅 - Fixed</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+body{font-family:sans-serif;margin:0;background:#f5f5f5}
+#auth-overlay{position:fixed;inset:0;background:#ffbc0d;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.hidden{display:none}
+button{padding:10px;margin-top:8px}
+</style>
+</head>
+<body>
+
+<div id="auth-overlay">
+  <h2>DDL餐厅</h2>
+  <input id="email" placeholder="邮箱"/>
+  <input id="password" type="password" placeholder="密码"/>
+  <button onclick="login()">登录</button>
+  <button onclick="signup()">注册</button>
+  <div id="err"></div>
+</div>
+
+<div id="app" class="hidden">
+  <h2>任务列表</h2>
+  <button onclick="handleLogout()">退出登录</button>
+  <ul id="list"></ul>
+</div>
+
+<script>
+const sb = supabase.createClient(
+  'https://dykzgexoohulepmbjimc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5a3pnZXhvb2h1bGVwbWJqaW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTg5MTcsImV4cCI6MjA5MDE3NDkxN30.zeWGEt3PVAgvJVUG_9iQQwYXweZGqscuIUoueSv0AlE'
+);
+
+let currentUser = null;
+let authReady = false;
+
+// ✅ 初始化 session
+async function initAuth(){
+  const { data } = await sb.auth.getSession();
+  currentUser = data.session?.user || null;
+  authReady = true;
+  updateUI();
+  if(currentUser) loadTasks();
+}
+
+// ✅ 监听状态变化
+sb.auth.onAuthStateChange((event, session)=>{
+  currentUser = session?.user || null;
+  updateUI();
+  if(currentUser) loadTasks();
+});
+
+function updateUI(){
+  document.getElementById('auth-overlay').classList.toggle('hidden', !!currentUser);
+  document.getElementById('app').classList.toggle('hidden', !currentUser);
+}
+
+// 登录
+async function login(){
+  const email = emailEl().value;
+  const password = passEl().value;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if(error) err(error.message);
+}
+
+// 注册
+async function signup(){
+  const email = emailEl().value;
+  const password = passEl().value;
+  const { error } = await sb.auth.signUp({ email, password });
+  if(error) err(error.message);
+  else err('注册成功，请登录');
+}
+
+function emailEl(){return document.getElementById('email');}
+function passEl(){return document.getElementById('password');}
+function err(msg){document.getElementById('err').textContent = msg;}
+
+// 登出（修复）
+async function handleLogout(){
+  await sb.auth.signOut();
+}
+
+// ✅ 加载任务（关键：检查 currentUser）
+async function loadTasks(){
+  if(!authReady || !currentUser) return;
+
+  const { data, error } = await sb
+    .from('tasks')
+    .select('*')
+    .eq('user_id', currentUser.id);
+
+  if(error){console.error(error);return;}
+
+  const ul = document.getElementById('list');
+  ul.innerHTML = data.map(t=>`<li>${t.text}</li>`).join('');
+}
+
+// 初始化
+initAuth();
+</script>
+
+</body>
+</html>
