@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="DDL餐厅"/>
+<meta name="theme-color" content="#ffbc0d"/>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%23ffbc0d'/%3E%3Ctext x='256' y='340' font-size='280' text-anchor='middle'%3E🍔%3C/text%3E%3C/svg%3E"/>
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22DDL%E9%A4%90%E5%8E%85%22%2C%22short_name%22%3A%22DDL%E9%A4%90%E5%8E%85%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffbc0d%22%2C%22theme_color%22%3A%22%23ffbc0d%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%2520viewBox%3D'0%25200%2520512%2520512'%253E%253Crect%2520width%3D'512'%2520height%3D'512'%2520rx%3D'120'%2520fill%3D'%2523ffbc0d'%2F%253E%253Ctext%2520x%3D'256'%2520y%3D'340'%2520font-size%3D'280'%2520text-anchor%3D'middle'%253E%25F0%259F%258D%2594%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D"/>
 <title>DDL餐厅</title>
 <link href="https://fonts.loli.net/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -557,9 +563,13 @@ async function handleAuth(){
     document.getElementById('auth-btn').textContent='注册';
   }
 }
-function handleLogout(){
+async function handleLogout(){
   if(!confirm('确认退出登录？'))return;
-  sb.auth.signOut();
+  await sb.auth.signOut();
+  tasks=[];
+  sessionLoaded=false;
+  showAuthOverlay(true);
+  render();
 }
 function showLoading(v){
   document.getElementById('loading-overlay').classList.toggle('hidden',!v);
