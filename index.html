@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="DDL餐厅"/>
+<meta name="theme-color" content="#ffbc0d"/>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%23ffbc0d'/%3E%3Ctext x='256' y='340' font-size='280' text-anchor='middle'%3E🍔%3C/text%3E%3C/svg%3E"/>
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22DDL%E9%A4%90%E5%8E%85%22%2C%22short_name%22%3A%22DDL%E9%A4%90%E5%8E%85%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffbc0d%22%2C%22theme_color%22%3A%22%23ffbc0d%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%2520viewBox%3D'0%25200%2520512%2520512'%253E%253Crect%2520width%3D'512'%2520height%3D'512'%2520rx%3D'120'%2520fill%3D'%2523ffbc0d'%2F%253E%253Ctext%2520x%3D'256'%2520y%3D'340'%2520font-size%3D'280'%2520text-anchor%3D'middle'%253E%25F0%259F%258D%2594%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D"/>
+<title>DDL餐厅</title>
+<link href="https://fonts.loli.net/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+/* 你的全部 CSS 保持不变（为节省篇幅此处省略，但实际使用时请完整保留原<style>内容） */
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Nunito','PingFang SC','Microsoft YaHei',sans-serif;background:#f5f5f5;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+/* ...（原 CSS 全部内容）... */
+</style>
+</head>
+<body data-theme="mcdonalds">
+
+<!-- Auth overlay -->
+<div id="auth-overlay">
+  <div class="auth-logo">🍔</div>
+  <div class="auth-title">DDL餐厅</div>
+  <div class="auth-sub">今日任务，一网打尽</div>
+  <div class="auth-card">
+    <div class="auth-tab-row">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">登录</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">注册</button>
+    </div>
+    <input class="auth-input" id="auth-email" type="email" placeholder="邮箱地址"/>
+    <input class="auth-input" id="auth-password" type="password" placeholder="密码（至少6位）"/>
+    <button class="auth-submit" id="auth-btn" onclick="handleAuth()">登录</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Game-style loading screen -->
+<div id="loading-overlay" class="hidden">
+  <div class="loading-bg-dots" id="loading-dots"></div>
+  <div class="loading-logo">🍔</div>
+  <div class="loading-title">DDL 餐厅</div>
+  <div class="loading-subtitle">TODAY'S TASK RESTAURANT</div>
+  <div class="loading-bar-wrap">
+    <div class="loading-bar-fill"></div>
+  </div>
+  <div class="loading-tip" id="loading-tip">备餐中，请稍候…</div>
+</div>
+
+<!-- Header -->
+<div id="header">
+  <div class="header-brand">
+    <div class="header-logo" id="header-logo">🍔</div>
+    <div class="header-name">DDL餐厅</div>
+    <button class="theme-switch-btn" onclick="openThemeSheet()" title="切换主题">⇄</button>
+    <button class="theme-switch-btn" onclick="handleLogout()" title="退出登录" style="margin-left:4px;font-size:13px">⏻</button>
+  </div>
+  <div class="header-tagline" id="header-tagline">今日任务，一网打尽</div>
+  <div class="header-bottom">
+    <div class="header-date" id="header-date">—</div>
+    <div class="header-open-badge" id="header-badge">🟢 营业中</div>
+  </div>
+</div>
+
+<!-- Body -->
+<div id="body">
+  <div id="sidebar">
+    <!-- 侧边栏内容保持不变 -->
+    <div class="nav-item active" data-cat="daily" onclick="scrollToSection('daily')">
+      <div class="nav-food-icon" style="background:#fff3cd">🍟<div class="nav-badge" id="badge-daily" style="display:none">0</div></div>
+      <div class="nav-label">日常</div>
+    </div>
+    <div class="nav-item" data-cat="short" onclick="scrollToSection('short')">
+      <div class="nav-food-icon" style="background:#ffe0e0">🍔<div class="nav-badge" id="badge-short" style="display:none">0</div></div>
+      <div class="nav-label">短期</div>
+    </div>
+    <div class="nav-item" data-cat="long" onclick="scrollToSection('long')">
+      <div class="nav-food-icon" style="background:#e0f5e0">🌮<div class="nav-badge" id="badge-long" style="display:none">0</div></div>
+      <div class="nav-label">长期</div>
+    </div>
+    <div class="nav-item" data-cat="noddle" onclick="scrollToSection('noddle')">
+      <div class="nav-food-icon" style="background:#e0eaff">🥤<div class="nav-badge" id="badge-noddle" style="display:none">0</div></div>
+      <div class="nav-label">无DDL</div>
+    </div>
+    <div class="nav-item" data-cat="watch" onclick="scrollToSection('watch')">
+      <div class="nav-food-icon" style="background:#f3e0ff">🍦<div class="nav-badge" id="badge-watch" style="display:none">0</div></div>
+      <div class="nav-label">偶尔关注</div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-item completed-nav" id="completed-nav" onclick="toggleCompleted()">
+      <div class="nav-food-icon" style="background:#f0f0f0">🧾<div class="nav-badge" id="badge-completed" style="display:none;background:#888">0</div></div>
+      <div class="nav-label">已完成</div>
+    </div>
+  </div>
+  <div id="main"></div>
+</div>
+
+<!-- Cart bar / Cart modal / Theme sheet / Edit modal / Add sheet / Receipt page 全部保持原样 -->
+<!-- （为节省篇幅，这里省略了这些部分的 HTML，但实际使用时请完整复制你原来的对应部分） -->
+
+<script>
+// ── Supabase ──────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://dykzgexoohulepmbjimc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5a3pnZXhvb2h1bGVwbWJqaW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTg5MTcsImV4cCI6MjA5MDE3NDkxN30.zeWGEt3PVAgvJVUG_9iQQwYXweZGqscuIUoueSv0AlE';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let tasks = [];
+let addingTo = null;
+let completedOpen = false;
+let scrollingProg = false;
+
+// ── Auth UI ───────────────────────────────────────────────────────────────
+let authMode = 'login';
+function switchTab(mode){
+  authMode = mode;
+  document.getElementById('tab-login').classList.toggle('active', mode==='login');
+  document.getElementById('tab-signup').classList.toggle('active', mode==='signup');
+  document.getElementById('auth-btn').textContent = mode==='login'?'登录':'注册';
+  document.getElementById('auth-error').textContent='';
+}
+
+async function handleAuth(){
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent='';
+  if(!email || !password){ errEl.textContent='请填写邮箱和密码'; return; }
+
+  document.getElementById('auth-btn').textContent = '请稍候…';
+  let result;
+  if(authMode==='login'){
+    result = await sb.auth.signInWithPassword({email, password});
+  } else {
+    result = await sb.auth.signUp({email, password});
+  }
+
+  if(result.error){
+    errEl.textContent = result.error.message === 'Invalid login credentials' ? '邮箱或密码错误' : result.error.message;
+    document.getElementById('auth-btn').textContent = authMode==='login'?'登录':'注册';
+  } else if(authMode==='signup' && !result.data?.session){
+    errEl.style.color = '#00704a';
+    errEl.textContent = '注册成功！请检查邮箱验证后登录';
+    document.getElementById('auth-btn').textContent = '注册';
+  }
+}
+
+async function handleLogout(){
+  if(!confirm('确认退出登录？')) return;
+  await sb.auth.signOut();
+  // 登出后会通过 onAuthStateChange 自动处理页面刷新
+}
+
+// ── Themes（保持不变） ─────────────────────────────────────────────────────
+const THEMES = [ /* 原 THEMES 数组不变 */ ];
+let currentTheme = localStorage.getItem("ddl-theme")||"mcdonalds";
+function applyTheme(id){ /* 原 applyTheme 函数不变 */ }
+function renderThemeGrid(){ /* 原 renderThemeGrid 函数不变 */ }
+function openThemeSheet(){ /* 原 openThemeSheet 函数不变 */ }
+function closeThemeSheet(e){ /* 原 closeThemeSheet 函数不变 */ }
+function pickTheme(id){ /* 原 pickTheme 函数不变 */ }
+
+// ── Data & Helpers（CATS, TODAY, WEEKDAYS 等保持不变） ─────────────────────
+const CATS = [ /* 原 CATS 数组不变 */ ];
+const TODAY = (()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+const WEEKDAYS = ["周日","周一","周二","周三","周四","周五","周六"];
+const MOTTOS = [ /* 原 MOTTOS 不变 */ ];
+const LOADING_TIPS = [ /* 原 LOADING_TIPS 不变 */ ];
+const FOOD_EMOJIS = ["🍔","🍟","🌮","🥤","🍦","🧁","🥗","🍱","☕","🥞","🍕","🥙"];
+
+// showLoading 函数保持不变（包含浮动表情逻辑）
+
+// ── Supabase CRUD（保持不变） ─────────────────────────────────────────────
+async function loadTasks(){ /* 原 loadTasks 函数不变 */ }
+async function dbInsert(task){ /* 原 dbInsert 函数不变 */ }
+async function dbUpdate(id,fields){ /* 原 dbUpdate 函数不变 */ }
+async function dbDelete(id){ /* 原 dbDelete 函数不变 */ }
+
+// ── Helpers（esc, parseDate, sortByDate 等保持不变） ───────────────────────
+// ...（所有 helper 函数保持原样）
+
+// ── Render & Task Actions（保持不变） ──────────────────────────────────────
+function render(){ /* 原 render 函数不变 */ }
+function handleComplete(e,id){ /* 原 handleComplete 函数不变 */ }
+function attachSwipeListeners(){ /* 原 attachSwipeListeners 函数不变 */ }
+
+// Edit, Nav, Add, Cart, Receipt 等函数全部保持原样
+// openEditModal, saveEdit, deleteTask, restoreTask, toggleAdd, addTask, updateCartBar, openCart, placeOrder, closeReceipt 等均不变
+
+// ── 修复后的 Init & Auth State ─────────────────────────────────────────────
+async function initAuth(){
+  showLoading(true);
+  try {
+    const { data: { session }, error } = await sb.auth.getSession();
+    
+    if (session && !error) {
+      currentUser = session.user;
+      showAuthOverlay(false);
+      await loadTasks();
+    } else {
+      showAuthOverlay(true);
+    }
+  } catch(e) {
+    console.error('initAuth error', e);
+    showAuthOverlay(true);
+  }
+  showLoading(false);
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    currentUser = session.user;
+    showAuthOverlay(false);
+    await loadTasks();
+  } else if (event === 'SIGNED_OUT') {
+    currentUser = null;
+    tasks = [];
+    showAuthOverlay(true);
+    render();
+  }
+});
+
+// ── 启动 ──────────────────────────────────────────────────────────────────
+applyTheme(currentTheme);
+render();                    // 先渲染空界面
+initAuth();                  // 异步恢复登录状态
+
+// 暴露给全局的函数（如果有 onclick 调用）
+window.switchTab = switchTab;
+window.handleAuth = handleAuth;
+window.handleLogout = handleLogout;
+window.openThemeSheet = openThemeSheet;
+window.closeThemeSheet = closeThemeSheet;
+window.pickTheme = pickTheme;
+// 其他 window.xxx = xxx; 请按需保留你原来有的所有全局函数绑定
+</script>
+</body>
+</html>
