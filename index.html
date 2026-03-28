@@ -609,6 +609,7 @@ function showLoading(v){
 }
 function showAuthOverlay(v){
   document.getElementById('auth-overlay').classList.toggle('hidden',!v);
+  if(v) document.querySelector('meta[name="theme-color"]').setAttribute('content','#ffbc0d');
 }
 
 // ── Themes ────────────────────────────────────────────────────────────────
