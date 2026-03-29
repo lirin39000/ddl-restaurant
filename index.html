@@ -601,8 +601,10 @@ async function handleAuth(){
 }
 async function handleLogout(){
   if(!confirm('确认退出登录？'))return;
+  showLoading(true);
   await sb.auth.signOut();
-  location.reload();
+  // signOut 后 onAuthStateChange 会自动处理清理和显示 auth overlay
+  // 不需要 location.reload()，那样会导致页面闪烁和状态不一致
 }
 function showLoading(v){
   document.getElementById('loading-overlay').classList.toggle('hidden',!v);
@@ -1008,12 +1010,13 @@ sb.auth.onAuthStateChange(async(event,session)=>{
   if(session){
     currentUser=session.user;
     showAuthOverlay(false);
-    if(!sessionLoaded||event==='SIGNED_IN'){
+    // 只有在 currentUser 有效且未加载过（或刚登录）时才加载任务
+    if(currentUser && (!sessionLoaded || event==='SIGNED_IN')){
       sessionLoaded=true;
       await loadTasks();
     }
   } else {
-    currentUser=null;tasks=[];
+    currentUser=null; tasks=[];
     sessionLoaded=false;
     showAuthOverlay(true);
     showLoading(false);
@@ -1021,13 +1024,9 @@ sb.auth.onAuthStateChange(async(event,session)=>{
   }
 });
 
-// 切出页面时登出，回来重新登录（浏览器会自动填密码）
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='hidden'){
-    sb.auth.signOut();
-    sessionLoaded=false;
-  }
-});
+// 移除 visibilitychange 自动登出 - 这会导致切换标签就意外登出
+// 用户切换标签不应该自动登出，这破坏了正常用法
+// document.addEventListener('visibilitychange',()=>{ ... }); // 已禁用
 </script>
 </body>
 </html>
