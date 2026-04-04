@@ -38,6 +38,8 @@ function toggleAdd(catId) {
   if (di) di.style.display = cat?.hasDate ? 'block' : 'none';
   if (ti) { ti.value = ''; setTimeout(() => ti.focus(), 320); }
   if (di) di.value = '';
+  const impSlider = document.getElementById('add-importance');
+  if (impSlider) { impSlider.value = 0; updateImportanceSlider('add', catId, 0); }
   document.getElementById('add-sheet').classList.add('show');
 }
 
@@ -57,8 +59,9 @@ async function addTask(catId) {
   const text = document.getElementById('add-sheet-text')?.value.trim();
   if (!text) return;
   const dateVal = document.getElementById('add-sheet-date')?.value.trim();
+  const importance = parseInt(document.getElementById('add-importance')?.value || '0');
   const cat = CATS.find(c => c.id === catId);
-  const newTask = {id: Date.now(), catId, text, date: cat?.hasDate && dateVal ? dateVal : null, done: false, doneDate: null};
+  const newTask = {id: Date.now(), catId, text, date: cat?.hasDate && dateVal ? dateVal : null, importance, done: false, doneDate: null};
   tasks.push(newTask);
   document.getElementById('add-sheet').classList.remove('show');
   window._addingTo = null;

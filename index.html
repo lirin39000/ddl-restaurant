@@ -133,6 +133,13 @@
     <div class="edit-panel-title">✏️ 修改任务</div>
     <input class="edit-input" id="edit-text-input" placeholder="任务名称…"/>
     <input class="edit-input" id="edit-date-input" placeholder="截止日期：04/15 或 04/15 14:00（无则留空）" style="display:none"/>
+    <div class="importance-row">
+      <div class="importance-label-row">
+        <span class="importance-label-text">重要程度</span>
+        <span class="importance-value-text" id="edit-importance-val">一般</span>
+      </div>
+      <input type="range" class="importance-range" id="edit-importance" min="0" max="100" value="0" oninput="onImportanceInput('edit')"/>
+    </div>
     <div class="edit-btns">
       <button class="edit-ok" onclick="saveEdit()">保存</button>
       <button class="edit-cancel" onclick="closeEditModal()">取消</button>
@@ -155,6 +162,13 @@
       onkeydown="if(event.key==='Enter')addTask(window._addingTo)"/>
     <input class="add-sheet-input" id="add-sheet-date" placeholder="截止日期：04/15 或 04/15 14:00（选填）"
       style="display:none"/>
+    <div class="importance-row">
+      <div class="importance-label-row">
+        <span class="importance-label-text">重要程度</span>
+        <span class="importance-value-text" id="add-importance-val">一般</span>
+      </div>
+      <input type="range" class="importance-range" id="add-importance" min="0" max="100" value="0" oninput="onImportanceInput('add')"/>
+    </div>
     <div class="add-sheet-btns">
       <button class="add-sheet-ok" onclick="addTask(window._addingTo)">加入菜单 🍽</button>
       <button class="add-sheet-cancel" onclick="cancelAdd()">取消</button>

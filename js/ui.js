@@ -1,3 +1,41 @@
+// ── Importance slider helpers ─────────────────────────────────────────────
+
+function importanceBgColor(imp, cat) {
+  if (!cat) return '#eee';
+  const t = Math.max(0, Math.min(100, imp || 0)) / 100;
+  const a = cat.bgColor, b = cat.darkBgColor || '#555';
+  const ar=parseInt(a.slice(1,3),16), ag=parseInt(a.slice(3,5),16), ab=parseInt(a.slice(5,7),16);
+  const br=parseInt(b.slice(1,3),16), bg=parseInt(b.slice(3,5),16), bb=parseInt(b.slice(5,7),16);
+  return `rgb(${Math.round(ar+(br-ar)*t)},${Math.round(ag+(bg-ag)*t)},${Math.round(ab+(bb-ab)*t)})`;
+}
+
+function updateImportanceSlider(prefix, catId, val) {
+  const slider = document.getElementById(`${prefix}-importance`);
+  const valEl = document.getElementById(`${prefix}-importance-val`);
+  if (!slider) return;
+  const cat = CATS.find(c => c.id === catId);
+  const pct = parseInt(val) || 0;
+  const light = cat?.bgColor || '#f0f0f0';
+  const dark = cat?.darkBgColor || '#555';
+  slider.style.background = pct <= 0
+    ? light
+    : `linear-gradient(to right, ${dark} ${pct}%, ${light} ${pct}%)`;
+  if (valEl) {
+    if (pct === 0) { valEl.textContent = '一般'; valEl.style.color = '#aaa'; }
+    else if (pct < 30) { valEl.textContent = '稍微重要'; valEl.style.color = '#888'; }
+    else if (pct < 60) { valEl.textContent = '比较重要'; valEl.style.color = '#666'; }
+    else if (pct < 85) { valEl.textContent = '很重要'; valEl.style.color = '#444'; }
+    else { valEl.textContent = '非常重要！'; valEl.style.color = '#c00'; }
+  }
+}
+
+function onImportanceInput(prefix) {
+  const slider = document.getElementById(`${prefix}-importance`);
+  if (!slider) return;
+  const catId = prefix === 'add' ? window._addingTo : tasks.find(t => t.id === editingId)?.catId;
+  updateImportanceSlider(prefix, catId, slider.value);
+}
+
 // ── Loading ───────────────────────────────────────────────────────────────
 
 function showLoading(v) {
@@ -103,6 +141,8 @@ function openEditModal(id) {
   ti.value = task.text;
   if (cat?.hasDate) { di.style.display = 'block'; di.value = task.date || ''; }
   else { di.style.display = 'none'; di.value = ''; }
+  const impSlider = document.getElementById('edit-importance');
+  if (impSlider) { impSlider.value = task.importance || 0; updateImportanceSlider('edit', task.catId, task.importance || 0); }
   document.getElementById('edit-modal').classList.add('show');
   setTimeout(() => ti.focus(), 320);
 }
@@ -120,11 +160,12 @@ async function saveEdit() {
   const dateVal = document.getElementById('edit-date-input').value.trim();
   const cat = CATS.find(c => c.id === tasks.find(t => t.id === sid)?.catId);
   const newDate = cat?.hasDate && dateVal ? dateVal : null;
-  tasks = tasks.map(t => t.id === sid ? {...t, text, date: newDate} : t);
+  const importance = parseInt(document.getElementById('edit-importance')?.value || '0');
+  tasks = tasks.map(t => t.id === sid ? {...t, text, date: newDate, importance} : t);
   document.getElementById('edit-modal').classList.remove('show');
   editingId = null;
   render();
-  await dbUpdate(sid, {text, date: newDate});
+  await dbUpdate(sid, {text, date: newDate, importance});
 }
 
 // ── Nav ───────────────────────────────────────────────────────────────────

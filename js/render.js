@@ -57,7 +57,7 @@ function render() {
           <div class="card-action-delete" onclick="deleteTask(${t.id})"><span>🗑️</span><div class="card-action-label">删除</div></div>
         </div>
         <div class="task-card" id="card-${t.id}" data-id="${t.id}">
-          <div class="food-img-wrap"><div class="food-img" style="background:${cat.bgColor}">${foodEmoji(t,cat)}</div></div>
+          <div class="food-img-wrap"><div class="food-img" style="background:${importanceBgColor(t.importance||0,cat)}">${foodEmoji(t,cat)}</div></div>
           <div class="task-info"><div class="task-name">${esc(t.text)}</div><div class="task-desc">${esc(taskDesc(t,cat))}</div><div class="task-ddl">${priceDisplay(t,cat)}</div></div>
           <button class="add-btn" ontouchend="handleComplete(event,${t.id})" onclick="handleComplete(event,${t.id})">+</button>
         </div>
@@ -70,7 +70,7 @@ function render() {
           <div class="card-action-delete" onclick="deleteTask(${t.id})"><span>🗑️</span><div class="card-action-label">删除</div></div>
         </div>
         <div class="task-card done" id="card-${t.id}" data-id="${t.id}">
-          <div class="food-img-wrap"><div class="food-img" style="background:${cat.bgColor}">${foodEmoji(t,cat)}</div></div>
+          <div class="food-img-wrap"><div class="food-img" style="background:${importanceBgColor(t.importance||0,cat)}">${foodEmoji(t,cat)}</div></div>
           <div class="task-info"><div class="task-name">${esc(t.text)}</div><div class="task-desc">${esc(taskDesc(t,cat))}</div><div class="task-ddl">${priceDisplay(t,cat)}</div></div>
           <button class="add-btn done-btn">✓</button>
         </div>
@@ -87,7 +87,7 @@ function render() {
   else archived.forEach(t => {
     const cat = CATS.find(c => c.id === t.catId);
     html += `<div class="completed-task-card">
-      <div class="completed-food-wrap"><div class="completed-food-icon" style="background:${cat?.bgColor||'#eee'}">${foodEmoji(t,cat||CATS[0])}</div></div>
+      <div class="completed-food-wrap"><div class="completed-food-icon" style="background:${importanceBgColor(t.importance||0,cat||CATS[0])}">${foodEmoji(t,cat||CATS[0])}</div></div>
       <div class="completed-task-info"><div class="completed-task-name">${esc(t.text)}</div><div class="completed-task-meta">${cat?.label||''}${t.date?' · '+t.date:''}</div></div>
       <button class="restore-btn" onclick="restoreTask(${t.id})">恢复</button>
     </div>`;

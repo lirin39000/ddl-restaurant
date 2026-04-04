@@ -344,3 +344,49 @@ body[data-theme="starbucks"]{
 
 button:focus{outline:none;}
 input:focus{outline:none;}
+
+/* ── Importance slider ── */
+.importance-row{margin-bottom:14px;}
+.importance-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.importance-label-text{font-size:12px;font-weight:800;color:#888;}
+.importance-value-text{font-size:11px;font-weight:700;color:#aaa;transition:color 0.2s;}
+.importance-range{
+  -webkit-appearance:none;
+  appearance:none;
+  width:100%;
+  height:34px;
+  border-radius:17px;
+  outline:none;
+  cursor:pointer;
+  transition:background 0.08s;
+  display:block;
+}
+.importance-range::-webkit-slider-runnable-track{
+  height:34px;
+  border-radius:17px;
+}
+.importance-range::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,0.22);
+  cursor:pointer;
+  margin-top:3px;
+  border:2px solid rgba(255,255,255,0.9);
+}
+.importance-range::-moz-range-track{
+  height:34px;
+  border-radius:17px;
+  border:none;
+}
+.importance-range::-moz-range-thumb{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,0.22);
+  cursor:pointer;
+  border:2px solid rgba(255,255,255,0.9);
+}
