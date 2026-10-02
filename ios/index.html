@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="待办"/>
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)"/>
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)"/>
+<title>待办</title>
+<link rel="stylesheet" href="css/styles.css"/>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- ── 登录 ───────────────────────────────────────────────────── -->
+<div id="auth" class="hidden">
+  <div class="auth-box">
+    <div class="auth-glyph" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2"/><path d="M8 12.3l2.8 2.8L16.2 9.6"/></svg>
+    </div>
+    <h1 class="auth-title">待办</h1>
+    <p class="auth-sub">登录以同步你的列表</p>
+
+    <div class="seg" id="auth-seg">
+      <button class="seg-item on" id="tab-login" onclick="switchTab('login')">登录</button>
+      <button class="seg-item" id="tab-signup" onclick="switchTab('signup')">注册</button>
+    </div>
+
+    <div class="group">
+      <div class="row" id="auth-email-row">
+        <label class="row-label" for="auth-email">邮箱</label>
+        <input class="row-input" id="auth-email" type="email" autocomplete="email" placeholder="必填"/>
+      </div>
+      <div class="row">
+        <label class="row-label" for="auth-password">密码</label>
+        <input class="row-input" id="auth-password" type="password" autocomplete="current-password" placeholder="必填"/>
+      </div>
+    </div>
+
+    <button class="btn-filled" id="auth-btn" onclick="handleAuth()">登录</button>
+    <p class="auth-error" id="auth-error"></p>
+    <div class="auth-links" id="auth-links">
+      <button class="link" id="link-resend" style="display:none" onclick="resendConfirm()">重发验证邮件</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 启动 ───────────────────────────────────────────────────── -->
+<div id="splash" class="hidden">
+  <div class="spinner" aria-hidden="true"></div>
+</div>
+
+<!-- ── 主界面 ─────────────────────────────────────────────────── -->
+<div id="app">
+
+  <header id="navbar">
+    <div class="nav-bar">
+      <span class="nav-title" id="nav-title">待办</span>
+      <button class="nav-action" id="nav-menu" onclick="openMoreSheet()" aria-label="更多">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><circle cx="8.2" cy="12" r="1.1" class="fill"/><circle cx="12" cy="12" r="1.1" class="fill"/><circle cx="15.8" cy="12" r="1.1" class="fill"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="scroll">
+    <h1 class="large-title">待办</h1>
+    <div class="tile-grid" id="tiles"></div>
+    <div class="list-head" id="list-head"></div>
+    <div id="entries"></div>
+    <div class="scroll-pad"></div>
+  </main>
+
+  <footer id="toolbar">
+    <button class="new-btn" onclick="openAddSheet(activeCat)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" class="fill"/><path d="M12 7.6v8.8M7.6 12h8.8" class="knock"/></svg>
+      新建
+    </button>
+  </footer>
+
+</div>
+
+<!-- ── 新建 ───────────────────────────────────────────────────── -->
+<div id="add-sheet" class="scrim" onclick="closeAddSheet(event)">
+  <div class="sheet">
+    <div class="grabber"></div>
+    <div class="sheet-bar">
+      <button class="sheet-plain" onclick="closeAddSheet()">取消</button>
+      <span class="sheet-title">新建</span>
+      <button class="sheet-done" id="add-done" onclick="addTask(window._addingTo)">添加</button>
+    </div>
+    <div class="sheet-body">
+      <div class="group">
+        <div class="row">
+          <input class="row-input row-input--solo" id="add-text" placeholder="标题"
+            onkeydown="if(event.key==='Enter')addTask(window._addingTo)"/>
+        </div>
+      </div>
+      <div class="group" id="add-date-group">
+        <div class="row">
+          <span class="row-icon" data-tint="red" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3.6" y="5" width="16.8" height="15.2" rx="3.2"/><path d="M3.6 9.6h16.8M8.2 3.4v3.2M15.8 3.4v3.2"/></svg>
+          </span>
+          <label class="row-label" for="add-date">截止</label>
+          <input class="row-input row-input--trail" id="add-date" placeholder="04/15 或 04/15 14:00"/>
+        </div>
+      </div>
+      <div class="group">
+        <div class="row">
+          <span class="row-icon" data-tint="orange" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3.6v11.2"/><circle cx="12" cy="19.2" r="1.3" class="fill"/></svg>
+          </span>
+          <span class="row-label">优先级</span>
+          <div class="seg seg--inline" id="add-prio"></div>
+        </div>
+      </div>
+      <p class="group-note" id="add-note"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ── 编辑 ───────────────────────────────────────────────────── -->
+<div id="edit-sheet" class="scrim" onclick="closeEditSheet(event)">
+  <div class="sheet">
+    <div class="grabber"></div>
+    <div class="sheet-bar">
+      <button class="sheet-plain" onclick="closeEditSheet()">取消</button>
+      <span class="sheet-title">详细信息</span>
+      <button class="sheet-done" onclick="saveEdit()">完成</button>
+    </div>
+    <div class="sheet-body">
+      <div class="group">
+        <div class="row">
+          <input class="row-input row-input--solo" id="edit-text" placeholder="标题"/>
+        </div>
+      </div>
+      <div class="group" id="edit-date-group">
+        <div class="row">
+          <span class="row-icon" data-tint="red" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3.6" y="5" width="16.8" height="15.2" rx="3.2"/><path d="M3.6 9.6h16.8M8.2 3.4v3.2M15.8 3.4v3.2"/></svg>
+          </span>
+          <label class="row-label" for="edit-date">截止</label>
+          <input class="row-input row-input--trail" id="edit-date" placeholder="04/15 或 04/15 14:00"/>
+        </div>
+      </div>
+      <div class="group">
+        <div class="row">
+          <span class="row-icon" data-tint="orange" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3.6v11.2"/><circle cx="12" cy="19.2" r="1.3" class="fill"/></svg>
+          </span>
+          <span class="row-label">优先级</span>
+          <div class="seg seg--inline" id="edit-prio"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 更多 ───────────────────────────────────────────────────── -->
+<div id="more-sheet" class="scrim" onclick="closeMoreSheet(event)">
+  <div class="sheet">
+    <div class="grabber"></div>
+    <div class="sheet-bar">
+      <span class="sheet-spacer"></span>
+      <span class="sheet-title">选项</span>
+      <button class="sheet-done" onclick="closeMoreSheet()">完成</button>
+    </div>
+    <div class="sheet-body">
+      <p class="group-cap">外观</p>
+      <div class="group">
+        <div class="row">
+          <span class="row-icon" data-tint="indigo" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 3.4v17.2" class="half"/></svg>
+          </span>
+          <span class="row-label">主题</span>
+          <div class="seg seg--inline" id="appearance-seg"></div>
+        </div>
+      </div>
+
+      <p class="group-cap">记录</p>
+      <div class="group" id="log-stats"></div>
+      <div class="group" id="log-list"></div>
+
+      <p class="group-cap">账户</p>
+      <div class="group">
+        <button class="row row--tap row--danger" onclick="handleLogout()">
+          <span class="row-label">退出登录</span>
+        </button>
+      </div>
+      <p class="group-note" id="account-note"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ── 撤销 ───────────────────────────────────────────────────── -->
+<div id="undo">
+  <span id="undo-text">已删除</span>
+  <button onclick="undoDelete()">撤销</button>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/render.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/log.js"></script>
+<script src="js/init.js"></script>
+
+</body>
+</html>
