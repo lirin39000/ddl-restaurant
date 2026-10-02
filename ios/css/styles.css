@@ -199,24 +199,29 @@ svg .half{stroke-dasharray:0 100}
 
 .tick{
   width:22px;height:22px;flex-shrink:0;margin-top:1px;
-  border-radius:50%;border:1.5px solid var(--label-3);
+  border-radius:50%;border:1.5px solid var(--label-4);
   display:flex;align-items:center;justify-content:center;
   transition:background .18s ease,border-color .18s ease;
   padding:0;
 }
 .tick svg{width:13px;height:13px;stroke:#fff;stroke-width:2.6;opacity:0;transform:scale(.5);
           transition:opacity .18s ease,transform .18s cubic-bezier(.34,1.56,.64,1)}
+/* 优先级 = 描边的颜色深浅。普通是淡灰，往上逐级吃进列表色。
+   color-mix 不支持的话这两条整条失效，自动退回上面那条淡灰描边。 */
+.item[data-prio="50"] .tick{border-color:color-mix(in srgb, var(--item-tint) 55%, var(--label-4))}
+.item[data-prio="100"] .tick{border-color:var(--item-tint);border-width:2px}
+
 .item.done .tick{background:var(--item-tint);border-color:var(--item-tint)}
 .item.done .tick svg{opacity:1;transform:scale(1)}
 
 .item-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding-right:4px}
 .item-title{font-size:var(--t-body);line-height:1.3;word-break:break-word;letter-spacing:-.01em}
 .item-sub{font-size:var(--t-foot);color:var(--label-2);display:flex;gap:7px;flex-wrap:wrap}
-.item-sub .over{color:var(--red)}
+/* 过期不标红。只把字恢复成主文字色，比旁边的次级文字稍重一点，
+   能注意到，但不喊。 */
+.item-sub .past{color:var(--label)}
 .item.done .item-title{color:var(--label-2)}
-.item.done .item-sub{color:var(--label-3)}
-.bang{color:var(--item-tint);font-weight:600;margin-right:3px;letter-spacing:.5px}
-.item.done .bang{color:var(--label-3)}
+.item.done .item-sub,.item.done .item-sub .past{color:var(--label-3)}
 
 .item-info{
   width:22px;height:22px;flex-shrink:0;color:var(--blue);
@@ -315,7 +320,7 @@ svg .half{stroke-dasharray:0 100}
   display:flex;align-items:center;justify-content:center;color:#fff;
 }
 .row-icon svg{width:17px;height:17px;stroke-width:1.9}
-.row-icon[data-tint="red"]{background:var(--red)}
+.row-icon[data-tint="blue"]{background:var(--blue)}
 .row-icon[data-tint="orange"]{background:var(--orange)}
 .row-icon[data-tint="indigo"]{background:var(--indigo)}
 .row-label{font-size:var(--t-body);flex-shrink:0;letter-spacing:-.01em}

@@ -21,8 +21,8 @@ let currentAppearance = localStorage.getItem('ddl-appearance') || 'auto';
 // catId / hasDate / grey 沿用原值，数据库不动。
 // tint 用 iOS 系统色，icon 是 SF Symbols 的近似画法。
 const CATS = [
-  {id:"daily",  label:"日常",     hasDate:false, grey:true,  tint:"orange", icon:"repeat"},
-  {id:"short",  label:"短期",     hasDate:true,  grey:false, tint:"red",    icon:"flame"},
+  {id:"daily",  label:"日常",     hasDate:false, grey:true,  tint:"yellow", icon:"repeat"},
+  {id:"short",  label:"短期",     hasDate:true,  grey:false, tint:"orange", icon:"flame"},
   {id:"long",   label:"长期",     hasDate:true,  grey:false, tint:"green",  icon:"flag"},
   {id:"noddle", label:"无期限",   hasDate:false, grey:false, tint:"blue",   icon:"tray"},
   {id:"watch",  label:"偶尔关注", hasDate:false, grey:true,  tint:"purple", icon:"eye"},
@@ -55,11 +55,13 @@ const TODAY = (()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getM
 const WEEKDAYS = ["周日","周一","周二","周三","周四","周五","周六"];
 
 // ── 优先级 ─────────────────────────────────────────────────────────────────
-// 数据库仍存 0–100；提醒事项是用 ! !! !!! 表示的，这里照搬。
+// 数据库仍存 0–100。不用感叹号 —— 那种写法在列表里很吵。
+// 改成沿用原版 importanceBgColor 的思路：用颜色深浅表达，
+// 落在圆形勾选框的描边上（iOS 里那个圈本来就跟着列表颜色走）。
 const PRIORITIES = [
-  {v:0,   label:"无",   bangs:""},
-  {v:50,  label:"中",   bangs:"!!"},
-  {v:100, label:"高",   bangs:"!!!"},
+  {v:0,   label:"普通"},
+  {v:50,  label:"重要"},
+  {v:100, label:"很重要"},
 ];
 function priorityOf(imp) {
   const n = Number(imp) || 0;

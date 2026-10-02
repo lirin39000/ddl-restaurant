@@ -131,11 +131,11 @@ function itemHtml(t, cat, isDone, isArchive) {
   const prio = priorityOf(t.importance);
 
   const subBits = [];
-  if (due) subBits.push(`<span class="${due.over && !isDone ? 'over' : ''}">${due.text}</span>`);
+  if (due) subBits.push(`<span class="${due.over && !isDone ? 'past' : ''}">${due.text}</span>`);
   if (isArchive && cat) subBits.push(`<span>${esc(cat.label)}</span>`);
   const sub = subBits.length ? `<span class="item-sub">${subBits.join('')}</span>` : '';
 
-  return `<div class="item${isDone?' done':''}" id="item-${t.id}" style="--item-tint:var(--${tint})">
+  return `<div class="item${isDone?' done':''}" id="item-${t.id}" data-prio="${prio.v}" style="--item-tint:var(--${tint})">
     <div class="item-acts">
       <button class="act act-edit" onclick="openEditSheet(${t.id})" aria-label="详细信息">
         <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.pencil}</svg>
@@ -146,11 +146,11 @@ function itemHtml(t, cat, isDone, isArchive) {
     </div>
     <div class="item-in" data-id="${t.id}">
       <button class="tick" onclick="toggleDone(${t.id})"
-        aria-label="${isDone?'标记为未完成':'标记为已完成'}：${esc(t.text)}">
+        aria-label="${isDone?'标记为未完成':'标记为已完成'}：${esc(t.text)}${prio.v ? '，' + prio.label : ''}">
         <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.tickOk}</svg>
       </button>
       <span class="item-body">
-        <span class="item-title">${prio.bangs ? `<span class="bang">${prio.bangs}</span>` : ''}${esc(t.text)}</span>
+        <span class="item-title">${esc(t.text)}</span>
         ${sub}
       </span>
       <button class="item-info" onclick="openEditSheet(${t.id})" aria-label="详细信息：${esc(t.text)}">
