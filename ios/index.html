@@ -9,6 +9,14 @@
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)"/>
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)"/>
 <title>待办</title>
+
+<!-- 主屏图标。iOS 只认 PNG（SVG 会被直接忽略，退回成页面截图），
+     而且图要满铺不留圆角 —— 圆角由系统的 squircle 蒙版自己加，
+     自己先切会和系统的叠在一起出现缺口。也不能带透明通道。 -->
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+
 <link rel="stylesheet" href="css/styles.css"/>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
