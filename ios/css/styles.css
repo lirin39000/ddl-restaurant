@@ -233,6 +233,9 @@ svg .half{stroke-dasharray:0 100}
 .item-acts{position:absolute;inset:0 0 0 auto;display:flex;z-index:1}
 .act{width:75px;display:flex;align-items:center;justify-content:center;
      font-size:var(--t-sub);color:#fff}
+/* 顶部那条全局 svg{width:100%} 会让图标撑满整个 75px 格子，
+   操作区必须自己把尺寸钉死。 */
+.act svg{width:23px;height:23px;stroke-width:1.9}
 .act-edit{background:var(--gray)}
 .act-del{background:var(--red)}
 
