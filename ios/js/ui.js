@@ -232,6 +232,7 @@ async function addSub(taskId) {
   (subtasks[taskId] = subtasks[taskId] || []).push(row);
   expanded.add(taskId); saveExpanded();
   renderSubEditor(taskId);
+  renderModePicker(taskId);      // 加完第一条就该露出「大任务 / 文件夹」
   setTimeout(() => document.getElementById('sub-new')?.focus(), 0);
   render();
 }
@@ -239,6 +240,7 @@ async function addSub(taskId) {
 async function removeSub(taskId, subId) {
   subtasks[taskId] = subsOf(taskId).filter(k => k.id !== subId);
   renderSubEditor(taskId);
+  renderModePicker(taskId);      // 删光了就收回去
   render();
   await dbDeleteSub(subId);
 }
@@ -299,7 +301,7 @@ function renderModePicker(taskId) {
   const has = subsOf(taskId).length > 0;
 
   grp.style.display = has ? '' : 'none';
-  if (!has) { note.textContent = '加了子任务之后，可以选这条是大任务还是文件夹。'; return; }
+  if (!has) { note.textContent = ''; return; }
 
   const cur = modeOf(task);
   box.innerHTML = SUB_MODES.map(m =>
