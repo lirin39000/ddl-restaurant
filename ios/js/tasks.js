@@ -1,13 +1,53 @@
+// ── 展开 / 折叠 ───────────────────────────────────────────────────────────
+
+function toggleExpand(id) {
+  if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+  saveExpanded();
+  render();
+}
+
 // ── 划掉 / 取消划掉 ───────────────────────────────────────────────────────
+
+// 母任务的勾只是结果，不是开关：子任务全完成它就自动勾上。
+// 手动勾母任务则把子任务一起带上 —— 和提醒事项的行为一致。
+async function setDone(id, next, cascade) {
+  const t = tasks.find(x => x.id === id);
+  if (!t || t.done === next) return;
+
+  tasks = tasks.map(x => x.id === id ? {...x, done: next, doneDate: next ? TODAY : null} : x);
+  if (next) logDone(t); else unlogDone(t);
+
+  const writes = [dbUpdate(id, {done: next, doneDate: next ? TODAY : null})];
+  if (cascade) {
+    subsOf(id).forEach(k => {
+      if (k.done !== next) { k.done = next; writes.push(dbUpdateSub(k.id, {done: next})); }
+    });
+  }
+  render();
+  await Promise.all(writes);
+}
 
 async function toggleDone(id) {
   const t = tasks.find(x => x.id === id);
   if (!t) return;
-  const next = !t.done;
-  tasks = tasks.map(x => x.id === id ? {...x, done: next, doneDate: next ? TODAY : null} : x);
-  if (next) logDone(t); else unlogDone(t);
+  await setDone(id, !t.done, true);
+}
+
+// 子任务打勾后，回头看母任务该不该跟着变
+async function toggleSub(taskId, subId) {
+  const k = subsOf(taskId).find(x => x.id === subId);
+  if (!k) return;
+  k.done = !k.done;
   render();
-  await dbUpdate(id, {done: next, doneDate: next ? TODAY : null});
+  await dbUpdateSub(subId, {done: k.done});
+
+  const kids = subsOf(taskId);
+  const all = kids.length > 0 && kids.every(x => x.done);
+  const parent = tasks.find(x => x.id === taskId);
+  if (!parent) return;
+  // 全勾上 → 母任务自动完成；取消任意一个 → 母任务退回未完成
+  if (all && !parent.done)  await setDone(taskId, true,  false);
+  if (!all && parent.done)  await setDone(taskId, false, false);
 }
 
 async function restoreTask(id) {
@@ -27,7 +67,10 @@ function deleteTask(id) {
   if (!task) return;
   if (pendingDelete) commitDelete();          // 上一条还没落盘就先落盘
 
+  const keptSubs = subsOf(id);          // 撤销时要放回去
   tasks = tasks.filter(t => t.id !== id);
+  delete subtasks[id];
+  expanded.delete(id);
   render();
 
   const bar = document.getElementById('undo');
@@ -35,7 +78,7 @@ function deleteTask(id) {
   bar.classList.add('show');
 
   pendingDelete = {
-    task,
+    task, keptSubs,
     timer: setTimeout(commitDelete, 5000)
   };
 }
@@ -53,6 +96,7 @@ function undoDelete() {
   if (!pendingDelete) return;
   clearTimeout(pendingDelete.timer);
   tasks.push(pendingDelete.task);
+  if (pendingDelete.keptSubs?.length) subtasks[pendingDelete.task.id] = pendingDelete.keptSubs;
   tasks.sort((a, b) => a.id - b.id);
   pendingDelete = null;
   document.getElementById('undo').classList.remove('show');

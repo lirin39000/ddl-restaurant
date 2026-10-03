@@ -75,6 +75,18 @@ let tasks = [];
 let activeCat = 'daily';
 let showingArchive = false;
 
+// ── 子任务 ─────────────────────────────────────────────────────────────────
+// { [task_id]: [{id, text, done, position}, ...] }
+// 单独一张表，不动 tasks 的结构 —— 根目录那个旧版网站查 tasks 时
+// 只会看到母任务，完全不受影响。
+let subtasks = {};
+let expanded = new Set(JSON.parse(localStorage.getItem('ddl-expanded') || '[]'));
+function saveExpanded() {
+  localStorage.setItem('ddl-expanded', JSON.stringify([...expanded]));
+}
+function subsOf(taskId)  { return subtasks[taskId] || []; }
+function subDone(taskId) { return subsOf(taskId).filter(s => s.done).length; }
+
 let loadingTimer = null;
 
 // ── 滑动删除 ───────────────────────────────────────────────────────────────

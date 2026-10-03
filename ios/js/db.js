@@ -21,6 +21,7 @@ async function loadTasks() {
       }
     }
   } catch(e) { console.error('loadTasks error', e); }
+  await loadSubtasks();
   showLoading(false);
   render();
   reconcileBuckets();   // 不 await：写回是后台的事，不该拖住首屏
@@ -64,4 +65,39 @@ async function reconcileBuckets() {
       return sb.from('tasks').update({cat_id: b}).eq('id', t.id);
     }));
   } catch (e) { console.error('reconcileBuckets error', e); }
+}
+
+// ── 子任务 ────────────────────────────────────────────────────────────────
+
+async function loadSubtasks() {
+  subtasks = {};
+  try {
+    const {data} = await sb.from('subtasks').select('*')
+      .eq('user_id', currentUser.id)
+      .order('position', {ascending: true});
+    (data || []).forEach(r => {
+      (subtasks[r.task_id] = subtasks[r.task_id] || []).push(
+        {id: r.id, text: r.text, done: r.done, position: r.position});
+    });
+  } catch (e) { console.error('loadSubtasks error', e); }
+}
+
+async function dbAddSub(taskId, text, position) {
+  try {
+    const {data, error} = await sb.from('subtasks')
+      .insert({task_id: taskId, user_id: currentUser.id, text, position})
+      .select().single();
+    if (error) throw error;
+    return {id: data.id, text: data.text, done: data.done, position: data.position};
+  } catch (e) { console.error('dbAddSub error', e); return null; }
+}
+
+async function dbUpdateSub(id, fields) {
+  try { await sb.from('subtasks').update(fields).eq('id', id); }
+  catch (e) { console.error('dbUpdateSub error', e); }
+}
+
+async function dbDeleteSub(id) {
+  try { await sb.from('subtasks').delete().eq('id', id); }
+  catch (e) { console.error('dbDeleteSub error', e); }
 }

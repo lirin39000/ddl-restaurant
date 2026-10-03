@@ -36,11 +36,14 @@ function dueLabel(dateStr) {
   const hm = dt.getHours() === 23 && dt.getMinutes() === 59
     ? '' : ` ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
 
-  if (days < 0)   return {text: `${dt.getMonth()+1}月${dt.getDate()}日${hm}`, over: true};
+  // 不写周几 —— 「周三」要在脑子里换算成日期，直接给日期更省事。
+  // 只有今天/明天/后天这三个是真的比日期好懂。
+  const md = `${dt.getMonth()+1}月${dt.getDate()}日`;
+  if (days < 0)   return {text: `${md}${hm}`, over: true};
   if (days === 0) return {text: `今天${hm}`, over: dt < now};
   if (days === 1) return {text: `明天${hm}`, over: false};
-  if (days < 7)   return {text: `${WEEKDAYS[dt.getDay()]}${hm}`, over: false};
-  return {text: `${dt.getMonth()+1}月${dt.getDate()}日${hm}`, over: false};
+  if (days === 2) return {text: `后天${hm}`, over: false};
+  return {text: `${md}${hm}`, over: false};
 }
 
 function catOf(id) { return CATS.find(c => c.id === id); }
@@ -56,6 +59,8 @@ const ICONS = {
   check :'<circle cx="12" cy="12" r="9"/><path d="M8.2 12.3l2.7 2.7 5-5.4"/>',
   info  :'<circle cx="12" cy="12" r="9.2"/><path d="M12 10.8v5.6"/><circle cx="12" cy="7.9" r=".9" class="fill"/>',
   tickOk:'<path d="M4.8 12.6 9.6 17.2 19 7.2"/>',
+  chat  :'<path d="M20.4 11.6c0 4-3.8 7.2-8.4 7.2-1 0-2-.15-2.9-.43L4.4 19.9l1.3-3.3a6.8 6.8 0 0 1-2.1-5c0-4 3.8-7.2 8.4-7.2s8.4 3.2 8.4 7.2Z"/>',
+  chev  :'<path d="M9.2 5.6 15.6 12l-6.4 6.4"/>',
   pencil:'<path d="M4.6 19.4h4L19.8 8.2l-4-4L4.6 15.4v4Z"/>',
   trash :'<path d="M4.6 7h14.8M9.6 7V4.6h4.8V7M6.6 7l1 12.4h8.8L17.4 7"/>',
 };
@@ -130,12 +135,34 @@ function itemHtml(t, cat, isDone, isArchive) {
   const due = cat?.hasDate ? dueLabel(t.date) : null;
   const prio = priorityOf(t.importance);
 
+  const kids = subsOf(t.id);
+  const isOpen = expanded.has(t.id);
+
   const subBits = [];
   if (due) subBits.push(`<span class="${due.over && !isDone ? 'past' : ''}">${due.text}</span>`);
+  if (kids.length) subBits.push(`<span>${subDone(t.id)}/${kids.length}</span>`);
   if (isArchive && cat) subBits.push(`<span>${esc(cat.label)}</span>`);
   const sub = subBits.length ? `<span class="item-sub">${subBits.join('')}</span>` : '';
 
+  // 有子任务才给箭头。折叠是默认态，点一下展开。
+  const disc = kids.length
+    ? `<button class="disc${isOpen?' open':''}" onclick="toggleExpand(${t.id})"
+         aria-label="${isOpen?'收起':'展开'}子任务" aria-expanded="${isOpen}">
+         <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.chev}</svg>
+       </button>`
+    : '';
+
+  const kidRows = (kids.length && isOpen) ? kids.map(k => `
+    <div class="sub${k.done?' done':''}">
+      <button class="tick tick--sm" onclick="toggleSub(${t.id},${k.id})"
+        aria-label="${k.done?'取消完成':'完成'}：${esc(k.text)}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.tickOk}</svg>
+      </button>
+      <span class="sub-text">${esc(k.text)}</span>
+    </div>`).join('') : '';
+
   return `<div class="item${isDone?' done':''}" id="item-${t.id}" data-prio="${prio.v}" style="--item-tint:var(--${tint})">
+    <div class="item-head">
     <div class="item-acts">
       <button class="act act-edit" onclick="openEditSheet(${t.id})" aria-label="详细信息">
         <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.pencil}</svg>
@@ -153,10 +180,13 @@ function itemHtml(t, cat, isDone, isArchive) {
         <span class="item-title">${esc(t.text)}</span>
         ${sub}
       </span>
+      ${disc}
       <button class="item-info" onclick="openEditSheet(${t.id})" aria-label="详细信息：${esc(t.text)}">
         <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.info}</svg>
       </button>
     </div>
+    </div>
+    ${kidRows}
   </div>`;
 }
 

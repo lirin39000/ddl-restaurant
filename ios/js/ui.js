@@ -141,6 +141,7 @@ function openEditSheet(id) {
   else { grp.style.display = 'none'; inp.value = ''; }
 
   renderPrio('edit', task.importance || 0);
+  renderSubEditor(id);
   document.getElementById('edit-sheet').classList.add('show');
   setTimeout(() => document.getElementById('edit-text').focus(), 380);
 }
@@ -185,4 +186,47 @@ function openMoreSheet() {
 function closeMoreSheet(e) {
   if (e && e.target !== document.getElementById('more-sheet')) return;
   document.getElementById('more-sheet').classList.remove('show');
+}
+
+// ── 详细信息里的子任务编辑 ────────────────────────────────────────────────
+
+function renderSubEditor(taskId) {
+  const box = document.getElementById('edit-subs');
+  if (!box) return;
+  const kids = subsOf(taskId);
+  box.innerHTML = kids.map(k => `
+    <div class="row">
+      <button class="sub-del" onclick="removeSub(${taskId},${k.id})" aria-label="删除子任务：${esc(k.text)}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" class="fill"/><path d="M8 12h8" class="knock"/></svg>
+      </button>
+      <span class="row-label row-label--grow">${esc(k.text)}</span>
+    </div>`).join('') + `
+    <div class="row">
+      <button class="sub-add" onclick="addSub(${taskId})" aria-label="添加子任务">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" class="fill"/><path d="M12 8v8M8 12h8" class="knock"/></svg>
+      </button>
+      <input class="row-input" id="sub-new" placeholder="添加子任务"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addSub(${taskId});}"/>
+    </div>`;
+}
+
+async function addSub(taskId) {
+  const input = document.getElementById('sub-new');
+  const text = input?.value.trim();
+  if (!text) return;
+  const pos = subsOf(taskId).length;
+  const row = await dbAddSub(taskId, text, pos);
+  if (!row) return;
+  (subtasks[taskId] = subtasks[taskId] || []).push(row);
+  expanded.add(taskId); saveExpanded();
+  renderSubEditor(taskId);
+  setTimeout(() => document.getElementById('sub-new')?.focus(), 0);
+  render();
+}
+
+async function removeSub(taskId, subId) {
+  subtasks[taskId] = subsOf(taskId).filter(k => k.id !== subId);
+  renderSubEditor(taskId);
+  render();
+  await dbDeleteSub(subId);
 }
