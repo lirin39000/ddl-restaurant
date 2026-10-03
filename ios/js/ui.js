@@ -296,20 +296,16 @@ function readPicker(prefix) {
 function renderModePicker(taskId) {
   const grp = document.getElementById('edit-mode-group');
   const box = document.getElementById('edit-mode');
-  const note = document.getElementById('edit-mode-note');
   const task = tasks.find(t => t.id === taskId);
   const has = subsOf(taskId).length > 0;
 
   grp.style.display = has ? '' : 'none';
-  if (!has) { note.textContent = ''; return; }
+  if (!has) return;
 
   const cur = modeOf(task);
   box.innerHTML = SUB_MODES.map(m =>
     `<button type="button" class="seg-item${m.id===cur?' on':''}" onclick="pickMode(${taskId},'${m.id}')">${m.label}</button>`
   ).join('');
-  note.textContent = cur === 'folder'
-    ? '文件夹：母任务只是个壳，不会进已完成。进已完成的是完成了的子任务。'
-    : '大任务：子任务全部完成后，整条自动打勾并进入已完成。';
 }
 
 async function pickMode(taskId, mode) {
