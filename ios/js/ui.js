@@ -136,12 +136,12 @@ function openEditSheet(id) {
 
   document.getElementById('edit-text').value = task.text;
   const grp = document.getElementById('edit-date-group');
-  const inp = document.getElementById('edit-date');
-  if (cat?.hasDate) { grp.style.display = ''; inp.value = task.date || ''; }
-  else { grp.style.display = 'none'; inp.value = ''; }
+  if (cat?.hasDate) { grp.style.display = ''; fillPicker('edit', task); }
+  else { grp.style.display = 'none'; clearPicker('edit'); }
 
   renderPrio('edit', task.importance || 0);
   renderSubEditor(id);
+  renderModePicker(id);
   document.getElementById('edit-sheet').classList.add('show');
   setTimeout(() => document.getElementById('edit-text').focus(), 380);
 }
@@ -157,20 +157,23 @@ async function saveEdit() {
   const id = editingId;
   const text = document.getElementById('edit-text').value.trim();
   if (!text) return;
-  const cat = catOf(tasks.find(t => t.id === id)?.catId);
-  const dateVal = document.getElementById('edit-date').value.trim();
-  const date = cat?.hasDate && dateVal ? dateVal : null;
+  const old = tasks.find(t => t.id === id);
+  const cat = catOf(old?.catId);
+  const picked = cat?.hasDate ? readPicker('edit') : {dueAt: null, allDay: true, date: null};
   const importance = window._prio.edit || 0;
 
-  const old = tasks.find(t => t.id === id);
   // 改了日期就可能跨过 7 天线，归属得重算
-  const catId = TIMED.includes(old.catId) ? bucketOf({catId: old.catId, date}) : old.catId;
+  const probe = {catId: old.catId, dueAt: picked.dueAt, date: picked.date};
+  const catId = TIMED.includes(old.catId) ? bucketOf(probe) : old.catId;
 
-  tasks = tasks.map(t => t.id === id ? {...t, text, date, importance, catId} : t);
+  tasks = tasks.map(t => t.id === id
+    ? {...t, text, importance, catId, dueAt: picked.dueAt, allDay: picked.allDay, date: picked.date}
+    : t);
   document.getElementById('edit-sheet').classList.remove('show');
   editingId = null;
   render();
-  await dbUpdate(id, {text, date, importance, catId});
+  await dbUpdate(id, {text, importance, catId,
+    dueAt: picked.dueAt, allDay: picked.allDay, date: picked.date});
 }
 
 // ── 更多 ──────────────────────────────────────────────────────────────────
@@ -229,4 +232,85 @@ async function removeSub(taskId, subId) {
   renderSubEditor(taskId);
   render();
   await dbDeleteSub(subId);
+}
+
+// ── 日期 / 时间选择器 ─────────────────────────────────────────────────────
+// 用原生 input[type=date] 和 input[type=time]：iOS 上直接弹系统滚轮，
+// 不用自己画一个仿的。日期必填，时间通过开关决定要不要。
+
+function toggleTime(prefix) {
+  const on = document.getElementById(`${prefix}-has-time`).checked;
+  document.getElementById(`${prefix}-time-row`).style.display = on ? '' : 'none';
+  const t = document.getElementById(`${prefix}-time`);
+  if (on && !t.value) t.value = '18:00';
+}
+
+function fillPicker(prefix, task) {
+  const d = document.getElementById(`${prefix}-date`);
+  const sw = document.getElementById(`${prefix}-has-time`);
+  const t = document.getElementById(`${prefix}-time`);
+  const due = task ? dueOf(task) : null;
+
+  if (due) {
+    d.value = ymd(due);
+    const timed = task.allDay === false;
+    sw.checked = timed;
+    t.value = timed ? hhmm(due) : '18:00';
+  } else {
+    d.value = ''; sw.checked = false; t.value = '18:00';
+  }
+  toggleTime(prefix);
+}
+
+function clearPicker(prefix) {
+  document.getElementById(`${prefix}-date`).value = '';
+  document.getElementById(`${prefix}-has-time`).checked = false;
+  document.getElementById(`${prefix}-time`).value = '18:00';
+  toggleTime(prefix);
+}
+
+function readPicker(prefix) {
+  const dv = document.getElementById(`${prefix}-date`).value;
+  if (!dv) return {dueAt: null, allDay: true, date: null};
+  const on = document.getElementById(`${prefix}-has-time`).checked;
+  const tv = document.getElementById(`${prefix}-time`).value || '18:00';
+  const [y, m, day] = dv.split('-').map(Number);
+  const [hh, mm] = on ? tv.split(':').map(Number) : [23, 59];
+  const dt = new Date(y, m - 1, day, hh, mm, 0, 0);
+  return {dueAt: dt.toISOString(), allDay: !on, date: legacyDate(dt, !on)};
+}
+
+// ── 子任务模式 ────────────────────────────────────────────────────────────
+
+function renderModePicker(taskId) {
+  const grp = document.getElementById('edit-mode-group');
+  const box = document.getElementById('edit-mode');
+  const note = document.getElementById('edit-mode-note');
+  const task = tasks.find(t => t.id === taskId);
+  const has = subsOf(taskId).length > 0;
+
+  grp.style.display = has ? '' : 'none';
+  if (!has) { note.textContent = '加了子任务之后，可以选这条是大任务还是文件夹。'; return; }
+
+  const cur = modeOf(task);
+  box.innerHTML = SUB_MODES.map(m =>
+    `<button type="button" class="seg-item${m.id===cur?' on':''}" onclick="pickMode(${taskId},'${m.id}')">${m.label}</button>`
+  ).join('');
+  note.textContent = cur === 'folder'
+    ? '文件夹：母任务只是个壳，不会进已完成。进已完成的是完成了的子任务。'
+    : '大任务：子任务全部完成后，整条自动打勾并进入已完成。';
+}
+
+async function pickMode(taskId, mode) {
+  const t = tasks.find(x => x.id === taskId);
+  if (!t || modeOf(t) === mode) return;
+  t.subMode = mode;
+  // 切成文件夹时，母任务自己不该是「已完成」状态
+  if (mode === 'folder' && t.done) {
+    t.done = false; t.doneDate = null;
+    await dbUpdate(taskId, {done: false, doneDate: null});
+  }
+  renderModePicker(taskId);
+  render();
+  await dbUpdate(taskId, {subMode: mode});
 }

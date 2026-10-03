@@ -37,8 +37,9 @@ const ARCHIVE_CAT = {id:"__done", label:"已完成", tint:"gray", icon:"check"};
 const SHORT_TERM_DAYS = 7;
 const TIMED = ['short', 'long'];
 
-function daysUntil(dateStr) {
-  const dt = parseDate(dateStr);
+function daysUntil(dateOrTask) {
+  const dt = (dateOrTask && typeof dateOrTask === 'object')
+    ? dueOf(dateOrTask) : parseDate(dateOrTask);
   if (!dt) return null;
   const n = new Date();
   return Math.floor((dt - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 86400000);
@@ -46,7 +47,7 @@ function daysUntil(dateStr) {
 
 function bucketOf(t) {
   if (!TIMED.includes(t.catId)) return t.catId;
-  const d = daysUntil(t.date);
+  const d = daysUntil(t);
   if (d === null) return 'long';            // 没填日期的，先放长期
   return d < SHORT_TERM_DAYS ? 'short' : 'long';
 }
@@ -85,6 +86,20 @@ function saveExpanded() {
   localStorage.setItem('ddl-expanded', JSON.stringify([...expanded]));
 }
 function subsOf(taskId)  { return subtasks[taskId] || []; }
+
+// 有子任务的母任务分两种：
+//   task   大任务 —— 子任务全完成母任务才完成，然后整条进已完成
+//   folder 文件夹 —— 母任务只是个壳，永远不进已完成；
+//                   进已完成的是那些完成了的子任务本身
+const SUB_MODES = [
+  {id:'task',   label:'大任务'},
+  {id:'folder', label:'文件夹'},
+];
+function modeOf(t) { return t.subMode === 'folder' ? 'folder' : 'task'; }
+function isFolder(t) { return modeOf(t) === 'folder'; }
+
+// 文件夹的勾只是个指示：有任意一个子任务完成就点亮
+function folderLit(t) { return subDone(t.id) > 0; }
 function subDone(taskId) { return subsOf(taskId).filter(s => s.done).length; }
 
 let loadingTimer = null;
@@ -94,3 +109,19 @@ const SWIPE_REVEAL = 150;
 const SWIPE_COMMIT = 60;
 
 let editingId = null;
+
+// ── 日期 ────────────────────────────────────────────────────────────────
+// due_at 是真正的来源（带年份）。老数据只有「04/15」这种没年份的字符串，
+// 读的时候回退到那套解析，写的时候两边都写，这样根目录的旧站照常能读。
+
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function hhmm(d) {
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+// 存回 tasks.date 的老格式，给旧站看
+function legacyDate(d, allDay) {
+  const md = `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  return allDay ? md : `${md} ${hhmm(d)}`;
+}

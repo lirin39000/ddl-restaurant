@@ -30,6 +30,7 @@ async function setDone(id, next, cascade) {
 async function toggleDone(id) {
   const t = tasks.find(x => x.id === id);
   if (!t) return;
+  if (isFolder(t)) return;        // 文件夹的勾是指示灯，不是开关
   await setDone(id, !t.done, true);
 }
 
@@ -38,16 +39,31 @@ async function toggleSub(taskId, subId) {
   const k = subsOf(taskId).find(x => x.id === subId);
   if (!k) return;
   k.done = !k.done;
+  k.doneAt = k.done ? new Date().toISOString() : null;
   render();
-  await dbUpdateSub(subId, {done: k.done});
+  await dbUpdateSub(subId, {done: k.done, done_at: k.doneAt});
 
-  const kids = subsOf(taskId);
-  const all = kids.length > 0 && kids.every(x => x.done);
   const parent = tasks.find(x => x.id === taskId);
   if (!parent) return;
-  // 全勾上 → 母任务自动完成；取消任意一个 → 母任务退回未完成
+
+  // 文件夹模式：母任务永远不进已完成，它只是个壳。
+  // 勾不勾由 folderLit() 看子任务算，这里什么都不用做。
+  if (isFolder(parent)) return;
+
+  // 大任务模式：全勾上 → 母任务完成；取消任意一个 → 退回未完成
+  const kids = subsOf(taskId);
+  const all = kids.length > 0 && kids.every(x => x.done);
   if (all && !parent.done)  await setDone(taskId, true,  false);
   if (!all && parent.done)  await setDone(taskId, false, false);
+}
+
+// 从归档里把一条已完成的子任务放回去
+async function restoreSub(taskId, subId) {
+  const k = subsOf(taskId).find(x => x.id === subId);
+  if (!k) return;
+  k.done = false; k.doneAt = null;
+  render();
+  await dbUpdateSub(subId, {done: false, done_at: null});
 }
 
 async function restoreTask(id) {
@@ -117,9 +133,8 @@ function openAddSheet(catId) {
 
   const text = document.getElementById('add-text');
   const dateRow = document.getElementById('add-date-group');
-  const dateIn = document.getElementById('add-date');
   text.value = '';
-  dateIn.value = '';
+  clearPicker('add');
   dateRow.style.display = cat.hasDate ? '' : 'none';
 
   renderPrio('add', 0);
@@ -145,16 +160,19 @@ async function addTask(catId) {
   const text = document.getElementById('add-text').value.trim();
   if (!text) return;
   const cat = catOf(catId);
-  const dateVal = document.getElementById('add-date').value.trim();
-  const probe = {catId, date: cat?.hasDate && dateVal ? dateVal : null};
+  const picked = cat?.hasDate ? readPicker('add') : {dueAt: null, allDay: true, date: null};
+  const probe = {catId, dueAt: picked.dueAt, date: picked.date};
   const newTask = {
     id: Date.now(),
     catId: TIMED.includes(catId) ? bucketOf(probe) : catId,
     text,
-    date: cat?.hasDate && dateVal ? dateVal : null,
+    date: picked.date,
+    dueAt: picked.dueAt,
+    allDay: picked.allDay,
     importance: window._prio.add || 0,
     done: false,
-    doneDate: null
+    doneDate: null,
+    subMode: 'task'
   };
 
   tasks.push(newTask);

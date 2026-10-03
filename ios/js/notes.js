@@ -156,16 +156,19 @@ function renderBubbles() {
   }
   box.innerHTML = notes.map(n => {
     // 图和文字各自成泡 —— 糊在一起的话白字会压在图上读不了
-    const img = n.image_path && signedCache.has(n.image_path)
-      ? `<img class="bubble-img" src="${signedCache.get(n.image_path)}" alt="小记图片" loading="lazy"/>` : '';
+    const src = n.localUrl || (n.image_path && signedCache.get(n.image_path));
+    const img = src
+      ? `<img class="bubble-img" src="${src}" alt="小记图片" loading="lazy"/>` : '';
     const txt = n.text ? `<div class="bubble">${esc(n.text)}</div>` : '';
-    return `<div class="bubble-row">
-      <button class="read-btn" onclick="markRead(${n.id})" aria-label="已阅并删除这条小记">
+    const state = n.failed ? `<span class="bubble-state failed">${esc(n.failed)}</span>`
+                : n.pending ? `<span class="bubble-state">发送中…</span>` : '';
+    return `<div class="bubble-row${n.pending?' pending':''}">
+      <button class="read-btn" onclick="markRead('${n.id}')" aria-label="已阅并删除这条小记">
         <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.tickOk}</svg>
       </button>
       <div class="bubble-wrap">
         ${img}${txt}
-        <span class="bubble-time">${stamp(n.created_at)}</span>
+        <span class="bubble-time">${state || stamp(n.created_at)}</span>
       </div>
     </div>`;
   }).join('');
@@ -174,25 +177,27 @@ function renderBubbles() {
 
 // ── 发一条 ────────────────────────────────────────────────────────────────
 
+// 乐观渲染：气泡先出来，网络在后台跑。
+// 原来是 await 完插入才渲染，所以每发一条都要等一次到新加坡的往返；
+// 图片更慢 —— 上传 + 插入 + 换签名 URL，三次往返全等完才看得到。
+let tempSeq = 0;
+
 async function sendNote() {
   const input = document.getElementById('note-text');
   const text = input.value.trim();
   if (!text || !activeThread) return;
   input.value = '';
   autoGrow(input);
-  await pushNote({text, image_path: null});
-}
 
-async function pushNote(payload) {
-  try {
-    const {data, error} = await sb.from('notes')
-      .insert({thread_id: activeThread, user_id: currentUser.id, ...payload})
-      .select().single();
-    if (error) throw error;
-    notes.push(data);
-    await signImages();
-    renderBubbles();
-  } catch (e) { console.error('pushNote error', e); }
+  const temp = {
+    id: `tmp${++tempSeq}`, thread_id: activeThread,
+    text, image_path: null, created_at: new Date().toISOString(), pending: true,
+  };
+  notes.push(temp);
+  renderBubbles();                       // 立刻可见
+
+  const row = await insertNote({text, image_path: null});
+  swapTemp(temp.id, row);
 }
 
 async function pickImage(input) {
@@ -200,30 +205,69 @@ async function pickImage(input) {
   input.value = '';
   if (!file || !activeThread) return;
 
+  // 本地直接生成预览，不等上传
+  const localUrl = URL.createObjectURL(file);
+  const temp = {
+    id: `tmp${++tempSeq}`, thread_id: activeThread,
+    text: null, image_path: null, localUrl,
+    created_at: new Date().toISOString(), pending: true,
+  };
+  notes.push(temp);
+  renderBubbles();
+
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
-  const sending = document.getElementById('note-send');
-  sending.disabled = true;
   try {
     const {error} = await sb.storage.from('note-images')
       .upload(path, file, {contentType: file.type, upsert: false});
     if (error) throw error;
-    await pushNote({text: null, image_path: path});
+    const row = await insertNote({text: null, image_path: path});
+    // 本地那张先留着当缓存，省掉一次换签名 URL 的往返
+    if (row) signedCache.set(path, localUrl);
+    swapTemp(temp.id, row);
   } catch (e) {
     console.error('pickImage error', e);
-    alert('图片没传上去：' + (e.message || e));
+    markFailed(temp.id, '图片没传上去');
   }
-  sending.disabled = false;
+}
+
+async function insertNote(payload) {
+  try {
+    const {data, error} = await sb.from('notes')
+      .insert({thread_id: activeThread, user_id: currentUser.id, ...payload})
+      .select().single();
+    if (error) throw error;
+    return data;
+  } catch (e) { console.error('insertNote error', e); return null; }
+}
+
+// 服务器回包后把临时气泡换成真的；失败就标出来，别让它假装成功
+function swapTemp(tempId, row) {
+  const i = notes.findIndex(n => n.id === tempId);
+  if (i < 0) return;                     // 期间被「已阅」掉了
+  if (!row) { markFailed(tempId, '没发出去'); return; }
+  const localUrl = notes[i].localUrl;
+  notes[i] = localUrl ? {...row, localUrl} : row;
+  renderBubbles();
+}
+
+function markFailed(tempId, why) {
+  const n = notes.find(x => x.id === tempId);
+  if (!n) return;
+  n.pending = false; n.failed = why;
+  renderBubbles();
 }
 
 // ── 已阅 = 删掉 ───────────────────────────────────────────────────────────
 
 async function markRead(id) {
-  const n = notes.find(x => x.id === id);
-  notes = notes.filter(x => x.id !== id);
+  const key = String(id);
+  const n = notes.find(x => String(x.id) === key);
+  notes = notes.filter(x => String(x.id) !== key);
   renderBubbles();
+  if (!n || key.startsWith('tmp')) return;   // 还没落库，删了也没用
   try {
-    await sb.from('notes').delete().eq('id', id);
+    await sb.from('notes').delete().eq('id', n.id);
     if (n?.image_path) {
       await sb.storage.from('note-images').remove([n.image_path]);
       signedCache.delete(n.image_path);

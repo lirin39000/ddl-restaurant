@@ -5,7 +5,13 @@ async function loadTasks() {
   try {
     const {data, error} = await sb.from('tasks').select('*').eq('user_id', currentUser.id).order('id', {ascending: true});
     if (data) {
-      tasks = data.map(r => ({id: Number(r.id), catId: r.cat_id, text: r.text, date: r.date, importance: r.importance || 0, done: r.done, doneDate: r.done_date}));
+      tasks = data.map(r => ({
+        id: Number(r.id), catId: r.cat_id, text: r.text,
+        date: r.date, dueAt: r.due_at, allDay: r.all_day !== false,
+        importance: r.importance || 0,
+        done: r.done, doneDate: r.done_date,
+        subMode: r.sub_mode || 'task',
+      }));
       // Daily reset: only reset grey tasks whose done_date is NOT today
       const toReset = tasks.filter(t => {
         const c = CATS.find(x => x.id === bucketOf(t));
@@ -29,7 +35,12 @@ async function loadTasks() {
 
 async function dbInsert(task) {
   try {
-    const {error} = await sb.from('tasks').insert({id: task.id, user_id: currentUser.id, cat_id: task.catId, text: task.text, date: task.date, importance: task.importance || 0, done: task.done, done_date: task.doneDate});
+    const {error} = await sb.from('tasks').insert({
+      id: task.id, user_id: currentUser.id, cat_id: task.catId, text: task.text,
+      date: task.date, due_at: task.dueAt || null, all_day: task.allDay !== false,
+      importance: task.importance || 0,
+      done: task.done, done_date: task.doneDate, sub_mode: task.subMode || 'task',
+    });
     if (error) throw error;
     return task.id;
   } catch(e) { console.error('dbInsert error', e); return null; }
@@ -39,6 +50,9 @@ async function dbUpdate(id, fields) {
   try {
     const mapped = {};
     if (fields.catId !== undefined) mapped.cat_id = fields.catId;
+    if (fields.dueAt !== undefined) mapped.due_at = fields.dueAt;
+    if (fields.allDay !== undefined) mapped.all_day = fields.allDay;
+    if (fields.subMode !== undefined) mapped.sub_mode = fields.subMode;
     if (fields.text !== undefined) mapped.text = fields.text;
     if (fields.date !== undefined) mapped.date = fields.date;
     if (fields.importance !== undefined) mapped.importance = fields.importance;
@@ -77,7 +91,8 @@ async function loadSubtasks() {
       .order('position', {ascending: true});
     (data || []).forEach(r => {
       (subtasks[r.task_id] = subtasks[r.task_id] || []).push(
-        {id: r.id, text: r.text, done: r.done, position: r.position});
+        {id: r.id, taskId: r.task_id, text: r.text, done: r.done,
+         position: r.position, doneAt: r.done_at});
     });
   } catch (e) { console.error('loadSubtasks error', e); }
 }
@@ -88,7 +103,8 @@ async function dbAddSub(taskId, text, position) {
       .insert({task_id: taskId, user_id: currentUser.id, text, position})
       .select().single();
     if (error) throw error;
-    return {id: data.id, text: data.text, done: data.done, position: data.position};
+    return {id: data.id, taskId: taskId, text: data.text, done: data.done,
+            position: data.position, doneAt: data.done_at};
   } catch (e) { console.error('dbAddSub error', e); return null; }
 }
 

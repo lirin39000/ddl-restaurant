@@ -27,14 +27,14 @@ function sortByDate(a) {
 }
 
 // 提醒事项的写法：今天 / 明天 / 周几 / 月日，逾期标红
-function dueLabel(dateStr) {
-  const dt = parseDate(dateStr);
+function dueLabel(t) {
+  const dt = dueOf(t);
   if (!dt) return null;
   const now = new Date();
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const days = Math.floor((dt - midnight) / 86400000);
-  const hm = dt.getHours() === 23 && dt.getMinutes() === 59
-    ? '' : ` ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  const hm = (t.allDay === false || !(dt.getHours() === 23 && dt.getMinutes() === 59))
+    ? ` ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '';
 
   // 不写周几 —— 「周三」要在脑子里换算成日期，直接给日期更省事。
   // 只有今天/明天/后天这三个是真的比日期好懂。
@@ -46,9 +46,26 @@ function dueLabel(dateStr) {
   return {text: `${md}${hm}`, over: false};
 }
 
+// 一条任务的截止时刻：优先用 due_at，没有就退回解析老字符串
+function dueOf(t) {
+  if (t.dueAt) return new Date(t.dueAt);
+  return parseDate(t.date);
+}
+
 function catOf(id) { return CATS.find(c => c.id === id); }
 function openOf(catId) { return tasks.filter(t => bucketOf(t) === catId && !t.done); }
-function archived() { return tasks.filter(t => t.done && !catOf(bucketOf(t))?.grey); }
+function archived() {
+  return tasks.filter(t => t.done && !isFolder(t) && !catOf(bucketOf(t))?.grey);
+}
+
+// 文件夹模式下，进已完成的是子任务本身，不是那个壳
+function archivedSubs() {
+  const out = [];
+  tasks.filter(isFolder).forEach(t => {
+    subsOf(t.id).filter(k => k.done).forEach(k => out.push({sub: k, parent: t}));
+  });
+  return out.sort((a, b) => (b.sub.doneAt || '').localeCompare(a.sub.doneAt || ''));
+}
 
 const ICONS = {
   repeat:'<path d="M4.6 10.4a5 5 0 0 1 5-5h9M15.2 2.4l3.4 3L15.2 8.4"/><path d="M19.4 13.6a5 5 0 0 1-5 5h-9M8.8 21.6l-3.4-3 3.4-3"/>',
@@ -106,9 +123,25 @@ function renderList() {
 
   if (showingArchive) {
     const list = archived();
-    head.innerHTML = `<b>已完成</b><span>${list.length} 项</span>`;
-    box.innerHTML = list.map(t => itemHtml(t, catOf(bucketOf(t)), true, true)).join('');
-    if (!list.length) box.innerHTML = emptyHtml('check', '没有已完成的提醒',
+    const subs = archivedSubs();
+    head.innerHTML = `<b>已完成</b><span>${list.length + subs.length} 项</span>`;
+    box.innerHTML = list.map(t => itemHtml(t, catOf(bucketOf(t)), true, true)).join('')
+      + subs.map(({sub, parent}) => `
+        <div class="item done" style="--item-tint:var(--${catOf(bucketOf(parent))?.tint || 'gray'})">
+          <div class="item-head">
+          <div class="item-in">
+            <button class="tick" onclick="restoreSub(${parent.id},${sub.id})"
+              aria-label="放回：${esc(sub.text)}">
+              <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.tickOk}</svg>
+            </button>
+            <span class="item-body">
+              <span class="item-title">${esc(sub.text)}</span>
+              <span class="item-sub"><span>${esc(parent.text)}</span></span>
+            </span>
+          </div>
+          </div>
+        </div>`).join('');
+    if (!list.length && !subs.length) box.innerHTML = emptyHtml('check', '没有已完成的提醒',
       '划掉的短期、长期、无期限会收到这里。日常和偶尔关注每天重置。');
     return;
   }
@@ -132,15 +165,17 @@ function renderList() {
 
 function itemHtml(t, cat, isDone, isArchive) {
   const tint = cat ? cat.tint : 'gray';
-  const due = cat?.hasDate ? dueLabel(t.date) : null;
+  const due = cat?.hasDate ? dueLabel(t) : null;
   const prio = priorityOf(t.importance);
 
   const kids = subsOf(t.id);
   const isOpen = expanded.has(t.id);
+  const folder = kids.length > 0 && isFolder(t);
 
   const subBits = [];
   if (due) subBits.push(`<span class="${due.over && !isDone ? 'past' : ''}">${due.text}</span>`);
   if (kids.length) subBits.push(`<span>${subDone(t.id)}/${kids.length}</span>`);
+  if (folder) subBits.push(`<span class="tag-folder">文件夹</span>`);
   if (isArchive && cat) subBits.push(`<span>${esc(cat.label)}</span>`);
   const sub = subBits.length ? `<span class="item-sub">${subBits.join('')}</span>` : '';
 
@@ -172,10 +207,15 @@ function itemHtml(t, cat, isDone, isArchive) {
       </button>
     </div>
     <div class="item-in" data-id="${t.id}">
-      <button class="tick" onclick="toggleDone(${t.id})"
-        aria-label="${isDone?'标记为未完成':'标记为已完成'}：${esc(t.text)}${prio.v ? '，' + prio.label : ''}">
-        <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.tickOk}</svg>
-      </button>
+      ${folder
+        ? `<span class="tick tick--lamp${folderLit(t)?' lit':''}" role="img"
+             aria-label="文件夹，${subDone(t.id)} / ${kids.length} 已完成">
+             <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.tickOk}</svg>
+           </span>`
+        : `<button class="tick" onclick="toggleDone(${t.id})"
+             aria-label="${isDone?'标记为未完成':'标记为已完成'}：${esc(t.text)}${prio.v ? '，' + prio.label : ''}">
+             <svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.tickOk}</svg>
+           </button>`}
       <span class="item-body">
         <span class="item-title">${esc(t.text)}</span>
         ${sub}
