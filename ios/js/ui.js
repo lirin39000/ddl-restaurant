@@ -73,12 +73,18 @@ function attachSwipe() {
   document.querySelectorAll('.item-in[data-id]').forEach(row => {
     let startX = null, startY = null, curX = 0, moving = false;
 
+    const acts = row.parentElement.querySelector('.item-acts');
+    // 操作区平时整个藏起来。原来它一直画在那儿、只靠行盖住，
+    // 快速滚动时重绘会漏出一截红灰影子。
+    const reveal = on => acts && acts.classList.toggle('on', on);
+
     const to = (px, anim) => {
       row.style.transition = anim ? '' : 'none';
       row.style.transform = px ? `translateX(${px}px)` : '';
     };
-    const close = () => { to(0, true); row.classList.remove('swiped'); };
-    const open  = () => { to(-SWIPE_REVEAL, true); row.classList.add('swiped'); };
+    const close = () => { to(0, true); row.classList.remove('swiped');
+      setTimeout(() => { if (!row.classList.contains('swiped')) reveal(false); }, 240); };
+    const open  = () => { reveal(true); to(-SWIPE_REVEAL, true); row.classList.add('swiped'); };
 
     function onStart(cx, cy) {
       if (row.classList.contains('swiped')) { close(); return; }
@@ -88,9 +94,12 @@ function attachSwipe() {
       if (startX === null) return;
       const dx = cx - startX, dy = cy - startY;
       if (!moving) {
-        if (Math.abs(dx) < 8) return;
-        if (Math.abs(dy) > Math.abs(dx)) { startX = null; return; }
+        // 门槛放宽，并且要求横向明显压过纵向（1.5 倍）——
+        // 原来只比大小，快速竖滑时第一帧 dx 稍大就会误判成左滑
+        if (Math.abs(dx) < 14) return;
+        if (Math.abs(dx) < Math.abs(dy) * 1.5) { startX = null; return; }
         moving = true;
+        reveal(true);
       }
       if (e) e.preventDefault();
       curX = Math.max(Math.min(dx, 0), -SWIPE_REVEAL - 10);

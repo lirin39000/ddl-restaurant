@@ -22,7 +22,6 @@ document.addEventListener('keydown', e => {
   ['add-sheet', 'edit-sheet', 'more-sheet'].forEach(id => {
     document.getElementById(id).classList.remove('show');
   });
-  if (document.getElementById('notes-screen').classList.contains('show')) notesBack();
 });
 
 // ── 登录状态 ──────────────────────────────────────────────────────────────

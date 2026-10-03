@@ -66,9 +66,6 @@
   <header id="navbar">
     <div class="nav-bar">
       <span class="nav-title" id="nav-title">待办</span>
-      <button class="nav-action" onclick="openNotes()" aria-label="小记">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 11.6c0 4-3.8 7.2-8.4 7.2-1 0-2-.15-2.9-.43L4.4 19.9l1.3-3.3a6.8 6.8 0 0 1-2.1-5c0-4 3.8-7.2 8.4-7.2s8.4 3.2 8.4 7.2Z"/></svg>
-      </button>
       <button class="nav-action" id="nav-menu" onclick="openMoreSheet()" aria-label="更多">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><circle cx="8.2" cy="12" r="1.1" class="fill"/><circle cx="12" cy="12" r="1.1" class="fill"/><circle cx="15.8" cy="12" r="1.1" class="fill"/></svg>
       </button>
@@ -241,41 +238,6 @@
   </div>
 </div>
 
-<!-- ── 小记 ───────────────────────────────────────────────────── -->
-<div id="notes-screen">
-  <header class="notes-bar">
-    <button class="notes-back" onclick="notesBack()" aria-label="返回">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.8 5.6 8.4 12l6.4 6.4"/></svg>
-      <span id="notes-back-label">待办</span>
-    </button>
-    <span class="notes-title" id="notes-title">小记</span>
-    <button class="notes-act" id="notes-new" onclick="newThread()" aria-label="新建窗口">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.6v12.8M5.6 12h12.8"/></svg>
-    </button>
-    <button class="notes-act" id="notes-del" onclick="deleteThread()" aria-label="删除这个窗口">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 7h14.8M9.6 7V4.6h4.8V7M6.6 7l1 12.4h8.8L17.4 7"/></svg>
-    </button>
-  </header>
-
-  <main class="notes-body">
-    <div id="thread-list"></div>
-    <div id="bubbles"></div>
-  </main>
-
-  <footer class="composer">
-    <label class="comp-img" aria-label="添加图片">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="17.2" height="14" rx="3"/><circle cx="8.6" cy="10" r="1.5"/><path d="M4.6 16.4 9.4 12l3.6 3.2 2.8-2.2 3.6 3"/></svg>
-      <input type="file" accept="image/*" onchange="pickImage(this)"/>
-    </label>
-    <textarea id="note-text" rows="1" placeholder="写点什么"
-      oninput="autoGrow(this)"
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendNote();}"></textarea>
-    <button class="comp-send" id="note-send" onclick="sendNote()" aria-label="发送">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" class="fill"/><path d="M12 16.8V7.6M8.2 11.2 12 7.4l3.8 3.8" class="knock"/></svg>
-    </button>
-  </footer>
-</div>
-
 <!-- ── 撤销 ───────────────────────────────────────────────────── -->
 <div id="undo">
   <span id="undo-text">已删除</span>
@@ -289,7 +251,6 @@
 <script src="js/render.js"></script>
 <script src="js/tasks.js"></script>
 <script src="js/log.js"></script>
-<script src="js/notes.js"></script>
 <script src="js/init.js"></script>
 
 </body>
