@@ -18,10 +18,8 @@
 <link rel="manifest" href="manifest.webmanifest"/>
 
 <link rel="stylesheet" href="css/styles.css"/>
-<!-- Supabase SDK 自托管。原来挂在 unpkg 上，实测那一个请求就要 7.3 秒
-     （同源的其余 9 个文件加起来才 1.1 秒），而且它是阻塞脚本，
-     没下完整个页面都不动。放到自己域名下走 Vercel 的边缘节点。 -->
-<script src="vendor/supabase.js"></script>
+<!-- 提前把到 Supabase 的 TCP + TLS 握手做掉，等真要发请求时就省了这一段 -->
+<link rel="preconnect" href="https://dykzgexoohulepmbjimc.supabase.co" crossorigin/>
 </head>
 <body>
 
@@ -246,6 +244,10 @@
   <button onclick="undoDelete()">撤销</button>
 </div>
 
+<!-- SDK 自托管（原来在 unpkg 上，那一个请求实测 7.3 秒）。
+     放在 body 末尾而不是 <head>：它有 137KB，搁在头部会阻塞 HTML 解析，
+     首屏连骨架都画不出来。 -->
+<script src="vendor/supabase.js"></script>
 <script src="js/config.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/db.js"></script>

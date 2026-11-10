@@ -13,20 +13,34 @@ function saveCache() {
   } catch (e) {}
 }
 
-function loadCache() {
+// 启动时就调，不等认证。
+// 原来这里要求 c.uid === currentUser?.id，可启动那一刻 currentUser 还是
+// null，于是缓存永远读不到 —— 等于白存了。先画出来，服务器回来再覆盖。
+let cachedUid = null;
+
+function primeFromCache() {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
-    if (!c || c.uid !== currentUser?.id) return false;
-    tasks = c.tasks || [];
+    if (!c || !c.tasks || !c.tasks.length) return false;
+    cachedUid = c.uid;
+    tasks = c.tasks;
     subtasks = c.subtasks || {};
-    return tasks.length > 0;
+    return true;
   } catch (e) { return false; }
 }
 
+function clearCache() {
+  try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+  cachedUid = null;
+}
+
 async function loadTasks() {
-  // 有缓存就先上屏，转圈留给真的没东西可看的时候
-  const warm = loadCache();
-  if (warm) render(); else showLoading(true);
+  // 换了账号的话，缓存里是别人的数据，先清掉
+  if (cachedUid && cachedUid !== currentUser?.id) {
+    tasks = []; subtasks = {}; clearCache(); render();
+  }
+  // 屏幕上已经有东西就别再转圈了
+  if (!tasks.length) showLoading(true);
   try {
     const {data, error} = await sb.from('tasks').select('*').eq('user_id', currentUser.id).order('id', {ascending: true});
     if (data) {

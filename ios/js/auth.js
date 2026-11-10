@@ -123,6 +123,8 @@ async function handleLogout() {
   catch (e) { console.error('signOut error', e); }
   currentUser = null;
   tasks = [];
+  subtasks = {};
+  clearCache();
   sessionLoaded = false;
   switchTab('login');
   showAuthOverlay(true);
