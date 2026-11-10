@@ -11,6 +11,31 @@ function showLoading(v) {
   }
 }
 
+// ── 底部提示条 ────────────────────────────────────────────────────────────
+// 和撤销条共用那块位置：带按钮的是撤销，不带按钮的是一次性提示。
+
+let toastTimer = null;
+
+function toast(msg, ms) {
+  // 撤销条正在用这块位置，等它让开再说 —— 直接丢掉的话
+  // 「没存上」这种话就永远传不到人眼前了
+  if (pendingDelete) { setTimeout(() => toast(msg, ms), 5200); return; }
+  const bar = document.getElementById('undo');
+  document.getElementById('undo-text').textContent = msg;
+  bar.querySelector('button').style.display = 'none';
+  bar.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => bar.classList.remove('show'), ms || 4000);
+}
+
+function showUndoBar(msg) {
+  clearTimeout(toastTimer);
+  const bar = document.getElementById('undo');
+  document.getElementById('undo-text').textContent = msg;
+  bar.querySelector('button').style.display = '';
+  bar.classList.add('show');
+}
+
 // ── 外观 ──────────────────────────────────────────────────────────────────
 
 function applyAppearance(id) {
@@ -178,6 +203,7 @@ async function saveEdit() {
   tasks = tasks.map(t => t.id === id
     ? {...t, text, importance, catId, dueAt: picked.dueAt, allDay: picked.allDay, date: picked.date}
     : t);
+  markLocal(id);
   document.getElementById('edit-sheet').classList.remove('show');
   editingId = null;
   render();
@@ -228,7 +254,8 @@ async function addSub(taskId) {
   if (!text) return;
   const pos = subsOf(taskId).length;
   const row = await dbAddSub(taskId, text, pos);
-  if (!row) return;
+  if (!row) { toast('子任务没存上，检查一下网络'); return; }
+  markLocal(taskId);
   (subtasks[taskId] = subtasks[taskId] || []).push(row);
   expanded.add(taskId); saveExpanded();
   renderSubEditor(taskId);
@@ -239,6 +266,7 @@ async function addSub(taskId) {
 
 async function removeSub(taskId, subId) {
   subtasks[taskId] = subsOf(taskId).filter(k => k.id !== subId);
+  markLocal(taskId);
   renderSubEditor(taskId);
   renderModePicker(taskId);      // 删光了就收回去
   render();

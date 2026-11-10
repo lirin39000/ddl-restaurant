@@ -176,6 +176,7 @@ function itemHtml(t, cat, isDone, isArchive) {
   if (due) subBits.push(`<span class="${due.over && !isDone ? 'past' : ''}">${due.text}</span>`);
   if (kids.length) subBits.push(`<span>${subDone(t.id)}/${kids.length}</span>`);
   if (folder) subBits.push(`<span class="tag-folder">文件夹</span>`);
+  if (t.unsynced) subBits.push(`<span class="tag-folder unsync">未同步</span>`);
   if (isArchive && cat) subBits.push(`<span>${esc(cat.label)}</span>`);
   const sub = subBits.length ? `<span class="item-sub">${subBits.join('')}</span>` : '';
 

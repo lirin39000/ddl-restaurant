@@ -29,6 +29,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !currentUser) return;
   render();
   reconcileBuckets();
+  flushUnsynced();      // 后台挂着的时候可能有没存上的
 });
 
 // 抽屉打开时按 Esc 关掉

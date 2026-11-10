@@ -15,6 +15,7 @@ async function setDone(id, next, cascade) {
   if (!t || t.done === next) return;
 
   tasks = tasks.map(x => x.id === id ? {...x, done: next, doneDate: next ? TODAY : null} : x);
+  markLocal(id);
   if (next) logDone(t); else unlogDone(t);
 
   const writes = [dbUpdate(id, {done: next, doneDate: next ? TODAY : null})];
@@ -40,6 +41,7 @@ async function toggleSub(taskId, subId) {
   if (!k) return;
   k.done = !k.done;
   k.doneAt = k.done ? new Date().toISOString() : null;
+  markLocal(taskId);
   render();
   await dbUpdateSub(subId, {done: k.done, done_at: k.doneAt});
 
@@ -62,6 +64,7 @@ async function restoreSub(taskId, subId) {
   const k = subsOf(taskId).find(x => x.id === subId);
   if (!k) return;
   k.done = false; k.doneAt = null;
+  markLocal(taskId);
   render();
   await dbUpdateSub(subId, {done: false, done_at: null});
 }
@@ -70,6 +73,7 @@ async function restoreTask(id) {
   const t = tasks.find(x => x.id === id);
   if (t) unlogDone(t);
   tasks = tasks.map(x => x.id === id ? {...x, done: false, doneDate: null} : x);
+  markLocal(id);
   render();
   await dbUpdate(id, {done: false, doneDate: null});
 }
@@ -87,11 +91,10 @@ function deleteTask(id) {
   tasks = tasks.filter(t => t.id !== id);
   delete subtasks[id];
   expanded.delete(id);
+  markLocal(id);
   render();
 
-  const bar = document.getElementById('undo');
-  document.getElementById('undo-text').textContent = `已删除「${task.text}」`;
-  bar.classList.add('show');
+  showUndoBar(`已删除「${task.text}」`);
 
   pendingDelete = {
     task, keptSubs,
@@ -112,6 +115,7 @@ function undoDelete() {
   if (!pendingDelete) return;
   clearTimeout(pendingDelete.timer);
   tasks.push(pendingDelete.task);
+  markLocal(pendingDelete.task.id);
   if (pendingDelete.keptSubs?.length) subtasks[pendingDelete.task.id] = pendingDelete.keptSubs;
   tasks.sort((a, b) => a.id - b.id);
   pendingDelete = null;
@@ -176,13 +180,19 @@ async function addTask(catId) {
   };
 
   tasks.push(newTask);
+  markLocal(newTask.id);
   document.getElementById('add-sheet').classList.remove('show');
   window._addingTo = null;
   render();
 
-  const dbId = await dbInsert(newTask);
-  if (dbId == null) {
-    tasks = tasks.filter(t => t !== newTask);
+  // 存不上也别把它从列表里抹掉 —— 那就是「刚添上又不见了」。
+  // 留在原地标个「未同步」，等网络好了 flushUnsynced 自己补。
+  if ((await dbInsert(newTask)) == null) {
+    newTask.unsynced = true;
+    markLocal(newTask.id);
     render();
+    saveCache();
+    toast('没存上，网络恢复后会自动补上');
+    flushTimer = setTimeout(flushUnsynced, 8000);
   }
 }
