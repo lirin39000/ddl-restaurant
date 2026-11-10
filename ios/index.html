@@ -18,7 +18,10 @@
 <link rel="manifest" href="manifest.webmanifest"/>
 
 <link rel="stylesheet" href="css/styles.css"/>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<!-- Supabase SDK 自托管。原来挂在 unpkg 上，实测那一个请求就要 7.3 秒
+     （同源的其余 9 个文件加起来才 1.1 秒），而且它是阻塞脚本，
+     没下完整个页面都不动。放到自己域名下走 Vercel 的边缘节点。 -->
+<script src="vendor/supabase.js"></script>
 </head>
 <body>
 

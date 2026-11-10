@@ -1,0 +1,35 @@
+# Supabase 免费版闲置约 7 天就会自动休眠，醒来要一两分钟，
+# 期间前端所有请求都报 Load failed。这里每天戳一下数据库，让它一直醒着。
+#
+# 用的是 anon key —— 它本来就印在 js/config.js 里公开发给每个访客，
+# 放这儿不增加任何暴露面。RLS 开着，这个 key 读不到任何人的数据，
+# 查询会返回空数组，但请求本身算活跃，这就够了。
+
+name: Supabase keepalive
+
+on:
+  schedule:
+    - cron: '17 3 * * *'      # 每天 UTC 03:17 ≈ 北京时间 11:17
+  workflow_dispatch:           # 也可以在 Actions 页面手动点一下
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 戳一下 PostgREST
+        run: |
+          URL="https://dykzgexoohulepmbjimc.supabase.co/rest/v1/tasks?select=id&limit=1"
+          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5a3pnZXhvb2h1bGVwbWJqaW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1OTg5MTcsImV4cCI6MjA5MDE3NDkxN30.zeWGEt3PVAgvJVUG_9iQQwYXweZGqscuIUoueSv0AlE"
+
+          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 \
+                   -H "apikey: $KEY" -H "Authorization: Bearer $KEY" "$URL")
+
+          echo "HTTP $code"
+          echo "返回: $(cat /tmp/body)"
+
+          # 2xx 都算成功。RLS 下返回 [] 是预期的，重点是请求到达了数据库。
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "::error::保活失败，数据库可能已休眠或项目有问题"
+            exit 1
+          fi
+          echo "数据库醒着 ✓"

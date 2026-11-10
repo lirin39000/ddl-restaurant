@@ -1,7 +1,32 @@
 // ── Database operations ───────────────────────────────────────────────────
 
+// 上次看到的数据存在本地，下次开屏直接画出来，不用干等网络往返。
+// 服务器回来后再覆盖 —— 这样从主屏点开是「立刻有内容」而不是转圈。
+const CACHE_KEY = 'ddl-cache-v1';
+
+function saveCache() {
+  if (!currentUser) return;          // 没登录别拿空数据把缓存冲掉
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      at: Date.now(), uid: currentUser?.id, tasks, subtasks,
+    }));
+  } catch (e) {}
+}
+
+function loadCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if (!c || c.uid !== currentUser?.id) return false;
+    tasks = c.tasks || [];
+    subtasks = c.subtasks || {};
+    return tasks.length > 0;
+  } catch (e) { return false; }
+}
+
 async function loadTasks() {
-  showLoading(true);
+  // 有缓存就先上屏，转圈留给真的没东西可看的时候
+  const warm = loadCache();
+  if (warm) render(); else showLoading(true);
   try {
     const {data, error} = await sb.from('tasks').select('*').eq('user_id', currentUser.id).order('id', {ascending: true});
     if (data) {
@@ -30,6 +55,7 @@ async function loadTasks() {
   await loadSubtasks();
   showLoading(false);
   render();
+  saveCache();
   reconcileBuckets();   // 不 await：写回是后台的事，不该拖住首屏
 }
 

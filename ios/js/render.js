@@ -87,6 +87,7 @@ function render() {
   renderTiles();
   renderList();
   attachSwipe();
+  if (typeof saveCache === 'function') saveCache();   // 每次改完都留一份给下次开屏
 }
 
 function renderTiles() {
