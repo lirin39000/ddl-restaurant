@@ -172,6 +172,16 @@ svg .half{stroke-dasharray:0 100}
   display:flex;align-items:baseline;gap:7px;
 }
 .list-head b{font-size:var(--t-title3);font-weight:700;color:var(--label);letter-spacing:-.02em}
+/* 「清空」。靠右，蓝色普通按钮 —— 红色留给真正按下去那一刻的确认框，
+   摆在列表标题旁边一直红着太吵。 */
+.head-btn{
+  margin-left:auto;color:var(--blue);
+  font-size:var(--t-sub);font-weight:400;
+  /* 手指要够得着：撑到 44pt 见方，再用负 margin 把多出来的部分收回去，
+     免得标题那一行被顶高 */
+  padding:11px 0 11px 16px;margin:-11px 0 -11px auto;
+}
+.head-btn:active{opacity:.4}
 
 #entries{
   background:var(--bg-raised);

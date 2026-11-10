@@ -9,7 +9,7 @@
 // 发新版时把 VERSION 加一，旧缓存会在 activate 里被清掉。
 // ══════════════════════════════════════════════════════════════════════════
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `ddl-shell-${VERSION}`;
 
 const SHELL = [

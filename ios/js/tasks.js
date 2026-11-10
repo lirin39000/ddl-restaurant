@@ -79,46 +79,90 @@ async function restoreTask(id) {
 }
 
 // ── 删除（5 秒内可撤销）─────────────────────────────────────────────────────
+// 单条删除和「清空已完成」共用一套。要删的东西有两种：
+//   rows      整条任务（连它的子任务一起，数据库那边是级联删）
+//   looseSubs 文件夹里那几条已完成的子任务 —— 壳子要留着，只删子任务
+// 撤销时原样放回去，所以删之前得把它们都接住。
 
-let pendingDelete = null;   // {task, timer}
+let pendingDelete = null;
+
+function beginDelete(label, rows, looseSubs) {
+  if (pendingDelete) commitDelete();          // 上一批还没落盘就先落盘
+
+  const keptSubs = {};
+  const ids = new Set(rows.map(t => t.id));
+  rows.forEach(t => {
+    const kids = subsOf(t.id);
+    if (kids.length) keptSubs[t.id] = kids;
+    delete subtasks[t.id];
+    expanded.delete(t.id);
+    markLocal(t.id);
+  });
+  tasks = tasks.filter(t => !ids.has(t.id));
+
+  looseSubs.forEach(({sub, parentId}) => {
+    subtasks[parentId] = subsOf(parentId).filter(k => k.id !== sub.id);
+    markLocal(parentId);
+  });
+
+  render();
+  showUndoBar(label);
+  pendingDelete = {rows, keptSubs, looseSubs, timer: setTimeout(commitDelete, 5000)};
+}
 
 function deleteTask(id) {
   const task = tasks.find(t => t.id === id);
   if (!task) return;
-  if (pendingDelete) commitDelete();          // 上一条还没落盘就先落盘
+  beginDelete(`已删除「${task.text}」`, [task], []);
+}
 
-  const keptSubs = subsOf(id);          // 撤销时要放回去
-  tasks = tasks.filter(t => t.id !== id);
-  delete subtasks[id];
-  expanded.delete(id);
-  markLocal(id);
-  render();
+// 「已完成」里堆着的一次清掉。列表里是两种东西，都得算进去。
+function clearArchive() {
+  const rows = archived();
+  const subs = archivedSubs();
+  const n = rows.length + subs.length;
+  if (!n) return;
 
-  showUndoBar(`已删除「${task.text}」`);
+  const extra = subs.length ? `
+其中 ${subs.length} 项是文件夹里已完成的子任务。` : '';
+  if (!confirm(`清空已完成？
+${n} 项会被永久删除，不能恢复。${extra}`)) return;
 
-  pendingDelete = {
-    task, keptSubs,
-    timer: setTimeout(commitDelete, 5000)
-  };
+  beginDelete(`已清空 ${n} 项`, rows, subs.map(({sub, parent}) => ({sub, parentId: parent.id})));
 }
 
 async function commitDelete() {
   if (!pendingDelete) return;
-  const {task, timer} = pendingDelete;
+  const {rows, looseSubs, timer} = pendingDelete;
   clearTimeout(timer);
   pendingDelete = null;
   document.getElementById('undo').classList.remove('show');
-  await dbDelete(task.id);
+  await Promise.all([
+    ...rows.map(t => dbDelete(t.id)),
+    ...looseSubs.map(({sub}) => dbDeleteSub(sub.id)),
+  ]);
 }
 
 function undoDelete() {
   if (!pendingDelete) return;
-  clearTimeout(pendingDelete.timer);
-  tasks.push(pendingDelete.task);
-  markLocal(pendingDelete.task.id);
-  if (pendingDelete.keptSubs?.length) subtasks[pendingDelete.task.id] = pendingDelete.keptSubs;
-  tasks.sort((a, b) => a.id - b.id);
+  const {rows, keptSubs, looseSubs, timer} = pendingDelete;
+  clearTimeout(timer);
   pendingDelete = null;
+
+  rows.forEach(t => {
+    tasks.push(t);
+    markLocal(t.id);
+    if (keptSubs[t.id]) subtasks[t.id] = keptSubs[t.id];
+  });
+  tasks.sort((a, b) => a.id - b.id);
+
+  looseSubs.forEach(({sub, parentId}) => {
+    const kids = (subtasks[parentId] = subsOf(parentId));
+    kids.push(sub);
+    kids.sort((a, b) => (a.position || 0) - (b.position || 0));
+    markLocal(parentId);
+  });
+
   document.getElementById('undo').classList.remove('show');
   render();
 }

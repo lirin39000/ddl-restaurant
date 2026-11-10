@@ -124,7 +124,9 @@ function renderList() {
   if (showingArchive) {
     const list = archived();
     const subs = archivedSubs();
-    head.innerHTML = `<b>已完成</b><span>${list.length + subs.length} 项</span>`;
+    const n = list.length + subs.length;
+    head.innerHTML = `<b>已完成</b><span>${n} 项</span>`
+      + (n ? `<button class="head-btn" onclick="clearArchive()">清空</button>` : '');
     box.innerHTML = list.map(t => itemHtml(t, catOf(bucketOf(t)), true, true)).join('')
       + subs.map(({sub, parent}) => `
         <div class="item done" style="--item-tint:var(--${catOf(bucketOf(parent))?.tint || 'gray'})">
