@@ -132,6 +132,12 @@ async function handleLogout() {
 
 function showAuthOverlay(v) {
   document.getElementById('auth').classList.toggle('hidden', !v);
+  // 光 display:none 还不够保险 —— 有些浏览器照样会给隐藏字段做自动填充。
+  // 用不到的时候直接禁用，表单就彻底是个死的。
+  ['auth-email', 'auth-password'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !v;
+  });
 }
 
 // 两个输入框都支持回车直接提交

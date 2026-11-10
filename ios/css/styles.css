@@ -396,7 +396,10 @@ svg .half{stroke-dasharray:0 100}
   display:flex;align-items:center;justify-content:center;
   padding:24px;transition:opacity .3s;overflow-y:auto;
 }
-#auth.hidden{opacity:0;pointer-events:none;display:flex !important}
+/* 必须是 display:none。原来为了淡出动画写成 opacity:0 + display:flex，
+   结果登录表单一直留在布局里，Safari 每次加载都扫到那个 password 输入框，
+   于是弹「用保存的密码登录」。登录页不需要淡出。 */
+#auth.hidden{display:none !important}
 .auth-box{width:100%;max-width:370px}
 .auth-glyph{width:58px;height:58px;margin:0 auto 16px;color:var(--blue)}
 .auth-glyph svg{stroke-width:1.5}
